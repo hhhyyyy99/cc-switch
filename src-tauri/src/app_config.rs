@@ -940,6 +940,7 @@ impl MultiAppConfig {
             AppType::Codex,
             AppType::Gemini,
             AppType::OpenCode,
+            AppType::Pi,
         ] {
             let old_servers = match app {
                 AppType::Claude => &self.mcp.claude.servers,
@@ -949,7 +950,7 @@ impl MultiAppConfig {
                 AppType::OpenCode => &self.mcp.opencode.servers,
                 AppType::OpenClaw => continue, // OpenClaw MCP is still in development, skip
                 AppType::Hermes => continue,   // Hermes didn't exist in v3.6.x, skip
-                AppType::Pi => continue,
+                AppType::Pi => &self.mcp.pi_coding_agent.servers,
             };
 
             for (id, entry) in old_servers {
@@ -1052,6 +1053,8 @@ impl MultiAppConfig {
         self.mcp.claude = McpConfig::default();
         self.mcp.codex = McpConfig::default();
         self.mcp.gemini = McpConfig::default();
+        self.mcp.opencode = McpConfig::default();
+        self.mcp.pi_coding_agent = McpConfig::default();
 
         Ok(true)
     }
@@ -1283,5 +1286,42 @@ mod tests {
                 .unwrap()
                 .enabled
         );
+    }
+
+    #[test]
+    fn migrates_legacy_pi_mcp_to_unified_servers() {
+        let mut config = MultiAppConfig::default();
+        config.mcp.servers = None;
+        config.mcp.pi_coding_agent.servers.insert(
+            "fetch".to_string(),
+            serde_json::json!({
+                "name": "Fetch",
+                "enabled": true,
+                "server": {
+                    "type": "stdio",
+                    "command": "uvx",
+                    "args": ["mcp-server-fetch"]
+                },
+                "description": "Fetch docs"
+            }),
+        );
+
+        let migrated = config.migrate_mcp_to_unified().expect("migrate");
+
+        assert!(migrated);
+        let servers = config.mcp.servers.as_ref().expect("unified servers");
+        let fetch = servers.get("fetch").expect("fetch server");
+        assert!(fetch.apps.pi_coding_agent);
+        assert_eq!(fetch.name, "Fetch");
+        assert_eq!(fetch.description.as_deref(), Some("Fetch docs"));
+        assert_eq!(
+            fetch.server,
+            serde_json::json!({
+                "type": "stdio",
+                "command": "uvx",
+                "args": ["mcp-server-fetch"]
+            })
+        );
+        assert!(config.mcp.pi_coding_agent.servers.is_empty());
     }
 }

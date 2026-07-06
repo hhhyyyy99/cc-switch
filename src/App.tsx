@@ -228,7 +228,8 @@ function App() {
       sharedFeatureApp !== 'opencode' &&
       sharedFeatureApp !== 'openclaw' &&
       sharedFeatureApp !== 'gemini' &&
-      sharedFeatureApp !== 'hermes'
+      sharedFeatureApp !== 'hermes' &&
+      sharedFeatureApp !== 'pi'
     ) {
       setCurrentView('providers')
     }
@@ -239,7 +240,7 @@ function App() {
       (currentView === 'skills' ||
         currentView === 'skillsDiscovery' ||
         currentView === 'mcp') &&
-      (sharedFeatureApp === 'openclaw' || sharedFeatureApp === 'pi')
+      sharedFeatureApp === 'openclaw'
     ) {
       setCurrentView('providers')
     }
@@ -301,17 +302,16 @@ function App() {
       currentView === 'openclawAgents')
   const { data: openclawHealthWarnings = [] } =
     useOpenClawHealth(isOpenClawView)
-  const hasSkillsSupport =
-    sharedFeatureApp !== 'openclaw' && sharedFeatureApp !== 'pi'
-  const hasMcpSupport =
-    sharedFeatureApp !== 'openclaw' && sharedFeatureApp !== 'pi'
+  const hasSkillsSupport = sharedFeatureApp !== 'openclaw'
+  const hasMcpSupport = sharedFeatureApp !== 'openclaw'
   const hasSessionSupport =
     sharedFeatureApp === 'claude' ||
     sharedFeatureApp === 'codex' ||
     sharedFeatureApp === 'opencode' ||
     sharedFeatureApp === 'openclaw' ||
     sharedFeatureApp === 'gemini' ||
-    sharedFeatureApp === 'hermes'
+    sharedFeatureApp === 'hermes' ||
+    sharedFeatureApp === 'pi'
 
   const {
     addProvider,
