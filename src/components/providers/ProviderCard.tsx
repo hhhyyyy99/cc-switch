@@ -1,136 +1,136 @@
-import { useMemo, useState, useEffect } from "react";
-import { GripVertical, ChevronDown, ChevronUp } from "lucide-react";
-import { useTranslation } from "react-i18next";
+import { useMemo, useState, useEffect } from 'react'
+import { GripVertical, ChevronDown, ChevronUp } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import type {
   DraggableAttributes,
   DraggableSyntheticListeners,
-} from "@dnd-kit/core";
-import type { Provider } from "@/types";
-import type { AppId } from "@/lib/api";
-import { cn } from "@/lib/utils";
-import { ProviderActions } from "@/components/providers/ProviderActions";
-import { ProviderIcon } from "@/components/ProviderIcon";
-import UsageFooter from "@/components/UsageFooter";
-import SubscriptionQuotaFooter from "@/components/SubscriptionQuotaFooter";
-import CopilotQuotaFooter from "@/components/CopilotQuotaFooter";
-import CodexOauthQuotaFooter from "@/components/CodexOauthQuotaFooter";
-import { PROVIDER_TYPES, TEMPLATE_TYPES } from "@/config/constants";
-import { isHermesReadOnlyProvider } from "@/config/hermesProviderPresets";
-import { ProviderHealthBadge } from "@/components/providers/ProviderHealthBadge";
-import { FailoverPriorityBadge } from "@/components/providers/FailoverPriorityBadge";
+} from '@dnd-kit/core'
+import type { Provider } from '@/types'
+import type { AppId } from '@/lib/api'
+import { cn } from '@/lib/utils'
+import { ProviderActions } from '@/components/providers/ProviderActions'
+import { ProviderIcon } from '@/components/ProviderIcon'
+import UsageFooter from '@/components/UsageFooter'
+import SubscriptionQuotaFooter from '@/components/SubscriptionQuotaFooter'
+import CopilotQuotaFooter from '@/components/CopilotQuotaFooter'
+import CodexOauthQuotaFooter from '@/components/CodexOauthQuotaFooter'
+import { PROVIDER_TYPES, TEMPLATE_TYPES } from '@/config/constants'
+import { isHermesReadOnlyProvider } from '@/config/hermesProviderPresets'
+import { ProviderHealthBadge } from '@/components/providers/ProviderHealthBadge'
+import { FailoverPriorityBadge } from '@/components/providers/FailoverPriorityBadge'
 import {
   extractCodexBaseUrl,
   extractCodexExperimentalBearerToken,
   extractCodexWireApi,
   isCodexChatWireApi,
-} from "@/utils/providerConfigUtils";
-import { useProviderHealth } from "@/lib/query/failover";
-import { useUsageQuery } from "@/lib/query/queries";
+} from '@/utils/providerConfigUtils'
+import { useProviderHealth } from '@/lib/query/failover'
+import { useUsageQuery } from '@/lib/query/queries'
 
 interface DragHandleProps {
-  attributes: DraggableAttributes;
-  listeners: DraggableSyntheticListeners;
-  isDragging: boolean;
+  attributes: DraggableAttributes
+  listeners: DraggableSyntheticListeners
+  isDragging: boolean
 }
 
 interface ProviderCardProps {
-  provider: Provider;
-  isCurrent: boolean;
-  appId: AppId;
-  isInConfig?: boolean; // OpenCode: 是否已添加到 opencode.json
-  isOmo?: boolean;
-  isOmoSlim?: boolean;
-  onSwitch: (provider: Provider) => void;
-  onEdit: (provider: Provider) => void;
-  onDelete: (provider: Provider) => void;
-  onRemoveFromConfig?: (provider: Provider) => void;
-  onDisableOmo?: () => void;
-  onDisableOmoSlim?: () => void;
-  onConfigureUsage: (provider: Provider) => void;
-  onOpenWebsite: (url: string) => void;
-  onDuplicate: (provider: Provider) => void;
-  onTest?: (provider: Provider) => void;
-  onOpenTerminal?: (provider: Provider) => void;
-  isTesting?: boolean;
-  isProxyRunning: boolean;
-  isProxyTakeover?: boolean; // 代理接管模式（Live配置已被接管，切换为热切换）
-  dragHandleProps?: DragHandleProps;
-  isAutoFailoverEnabled?: boolean; // 是否开启自动故障转移
-  failoverPriority?: number; // 故障转移优先级（1 = P1, 2 = P2, ...）
-  isInFailoverQueue?: boolean; // 是否在故障转移队列中
-  onToggleFailover?: (enabled: boolean) => void; // 切换故障转移队列
-  activeProviderId?: string; // 代理当前实际使用的供应商 ID（用于故障转移模式下标注绿色边框）
+  provider: Provider
+  isCurrent: boolean
+  appId: AppId
+  isInConfig?: boolean // OpenCode: 是否已添加到 opencode.json
+  isOmo?: boolean
+  isOmoSlim?: boolean
+  onSwitch: (provider: Provider) => void
+  onEdit: (provider: Provider) => void
+  onDelete: (provider: Provider) => void
+  onRemoveFromConfig?: (provider: Provider) => void
+  onDisableOmo?: () => void
+  onDisableOmoSlim?: () => void
+  onConfigureUsage: (provider: Provider) => void
+  onOpenWebsite: (url: string) => void
+  onDuplicate: (provider: Provider) => void
+  onTest?: (provider: Provider) => void
+  onOpenTerminal?: (provider: Provider) => void
+  isTesting?: boolean
+  isProxyRunning: boolean
+  isProxyTakeover?: boolean // 代理接管模式（Live配置已被接管，切换为热切换）
+  dragHandleProps?: DragHandleProps
+  isAutoFailoverEnabled?: boolean // 是否开启自动故障转移
+  failoverPriority?: number // 故障转移优先级（1 = P1, 2 = P2, ...）
+  isInFailoverQueue?: boolean // 是否在故障转移队列中
+  onToggleFailover?: (enabled: boolean) => void // 切换故障转移队列
+  activeProviderId?: string // 代理当前实际使用的供应商 ID（用于故障转移模式下标注绿色边框）
   // OpenClaw: default model
-  isDefaultModel?: boolean;
-  onSetAsDefault?: () => void;
+  isDefaultModel?: boolean
+  onSetAsDefault?: () => void
 }
 
 /** 判断是否为官方供应商（无自定义 base URL / API key，直连官方 API） */
 function isOfficialProvider(provider: Provider, appId: AppId): boolean {
-  if (provider.category === "official") {
-    return true;
+  if (provider.category === 'official') {
+    return true
   }
 
-  const config = provider.settingsConfig as Record<string, any>;
-  if (appId === "claude") {
-    const baseUrl = config?.env?.ANTHROPIC_BASE_URL;
-    return !baseUrl || (typeof baseUrl === "string" && baseUrl.trim() === "");
+  const config = provider.settingsConfig as Record<string, any>
+  if (appId === 'claude') {
+    const baseUrl = config?.env?.ANTHROPIC_BASE_URL
+    return !baseUrl || (typeof baseUrl === 'string' && baseUrl.trim() === '')
   }
-  if (appId === "codex") {
+  if (appId === 'codex') {
     // 无 OPENAI_API_KEY → 使用 Codex CLI 内置 OAuth（官方）
-    const apiKey = config?.auth?.OPENAI_API_KEY;
+    const apiKey = config?.auth?.OPENAI_API_KEY
     const bearerToken =
-      typeof config?.config === "string"
+      typeof config?.config === 'string'
         ? extractCodexExperimentalBearerToken(config.config)
-        : undefined;
+        : undefined
     return (
       !bearerToken &&
-      (!apiKey || (typeof apiKey === "string" && apiKey.trim() === ""))
-    );
+      (!apiKey || (typeof apiKey === 'string' && apiKey.trim() === ''))
+    )
   }
-  if (appId === "gemini") {
+  if (appId === 'gemini') {
     // 无 GEMINI_API_KEY 且无 GOOGLE_GEMINI_BASE_URL → Google OAuth 官方模式
-    const apiKey = config?.env?.GEMINI_API_KEY;
-    const baseUrl = config?.env?.GOOGLE_GEMINI_BASE_URL;
+    const apiKey = config?.env?.GEMINI_API_KEY
+    const baseUrl = config?.env?.GOOGLE_GEMINI_BASE_URL
     return (
-      (!apiKey || (typeof apiKey === "string" && apiKey.trim() === "")) &&
-      (!baseUrl || (typeof baseUrl === "string" && baseUrl.trim() === ""))
-    );
+      (!apiKey || (typeof apiKey === 'string' && apiKey.trim() === '')) &&
+      (!baseUrl || (typeof baseUrl === 'string' && baseUrl.trim() === ''))
+    )
   }
-  return false;
+  return false
 }
 
 const extractApiUrl = (provider: Provider, fallbackText: string) => {
   if (provider.notes?.trim()) {
-    return provider.notes.trim();
+    return provider.notes.trim()
   }
 
   if (provider.websiteUrl) {
-    return provider.websiteUrl;
+    return provider.websiteUrl
   }
 
-  const config = provider.settingsConfig;
+  const config = provider.settingsConfig
 
-  if (config && typeof config === "object") {
+  if (config && typeof config === 'object') {
     const envBase =
       (config as Record<string, any>)?.env?.ANTHROPIC_BASE_URL ||
-      (config as Record<string, any>)?.env?.GOOGLE_GEMINI_BASE_URL;
-    if (typeof envBase === "string" && envBase.trim()) {
-      return envBase;
+      (config as Record<string, any>)?.env?.GOOGLE_GEMINI_BASE_URL
+    if (typeof envBase === 'string' && envBase.trim()) {
+      return envBase
     }
 
-    const baseUrl = (config as Record<string, any>)?.config;
+    const baseUrl = (config as Record<string, any>)?.config
 
-    if (typeof baseUrl === "string" && baseUrl.includes("base_url")) {
-      const extractedBaseUrl = extractCodexBaseUrl(baseUrl);
+    if (typeof baseUrl === 'string' && baseUrl.includes('base_url')) {
+      const extractedBaseUrl = extractCodexBaseUrl(baseUrl)
       if (extractedBaseUrl) {
-        return extractedBaseUrl;
+        return extractedBaseUrl
       }
     }
   }
 
-  return fallbackText;
-};
+  return fallbackText
+}
 
 export function ProviderCard({
   provider,
@@ -163,42 +163,42 @@ export function ProviderCard({
   isDefaultModel,
   onSetAsDefault,
 }: ProviderCardProps) {
-  const { t } = useTranslation();
+  const { t } = useTranslation()
 
   // OMO and OMO Slim share the same card behavior
-  const isAnyOmo = isOmo || isOmoSlim;
-  const handleDisableAnyOmo = isOmoSlim ? onDisableOmoSlim : onDisableOmo;
-  const isAdditiveMode = appId === "opencode" && !isAnyOmo;
+  const isAnyOmo = isOmo || isOmoSlim
+  const handleDisableAnyOmo = isOmoSlim ? onDisableOmoSlim : onDisableOmo
+  const isAdditiveMode = appId === 'opencode' && !isAnyOmo
 
-  const { data: health } = useProviderHealth(provider.id, appId);
+  const { data: health } = useProviderHealth(provider.id, appId)
 
-  const fallbackUrlText = t("provider.notConfigured", {
-    defaultValue: "未配置接口地址",
-  });
+  const fallbackUrlText = t('provider.notConfigured', {
+    defaultValue: '未配置接口地址',
+  })
 
   const displayUrl = useMemo(() => {
-    return extractApiUrl(provider, fallbackUrlText);
-  }, [provider, fallbackUrlText]);
+    return extractApiUrl(provider, fallbackUrlText)
+  }, [provider, fallbackUrlText])
 
   const isClickableUrl = useMemo(() => {
     if (provider.notes?.trim()) {
-      return false;
+      return false
     }
     if (displayUrl === fallbackUrlText) {
-      return false;
+      return false
     }
-    return true;
-  }, [provider.notes, displayUrl, fallbackUrlText]);
+    return true
+  }, [provider.notes, displayUrl, fallbackUrlText])
 
-  const usageEnabled = provider.meta?.usage_script?.enabled ?? false;
-  const isOfficial = isOfficialProvider(provider, appId);
+  const usageEnabled = provider.meta?.usage_script?.enabled ?? false
+  const isOfficial = isOfficialProvider(provider, appId)
   const supportsOfficialSubscription =
-    isOfficial && ["claude", "codex", "gemini"].includes(appId);
+    isOfficial && ['claude', 'codex', 'gemini'].includes(appId)
   const isOfficialSubscriptionUsage =
     provider.meta?.usage_script?.templateType ===
-    TEMPLATE_TYPES.OFFICIAL_SUBSCRIPTION;
+    TEMPLATE_TYPES.OFFICIAL_SUBSCRIPTION
   const officialSubscriptionEnabled =
-    supportsOfficialSubscription && usageEnabled && isOfficialSubscriptionUsage;
+    supportsOfficialSubscription && usageEnabled && isOfficialSubscriptionUsage
   // 官方判定只认显式 category === "official"（SSOT），不回退 isOfficial 的空字段启发式。
   // 理由（此判定曾在「纯 category ↔ category+isOfficial 回退」间反复，结论钉死于此）：
   //  1) 封号保护是高代价决策，不该建立在「base_url/key 缺失」这种脆弱信号上——它无法区分
@@ -208,115 +208,117 @@ export function ProviderCard({
   //  3) 预设导入的官方一定带 category="official"，category 缺失的「真官方」现实中≈不存在。
   // 真官方就该有显式 category；手动新建官方应引导标注，而不是靠空字段猜。
   const isOfficialBlockedByProxy =
-    isProxyTakeover && provider.category === "official";
+    isProxyTakeover && provider.category === 'official'
   const isCopilot =
     provider.meta?.providerType === PROVIDER_TYPES.GITHUB_COPILOT ||
-    provider.meta?.usage_script?.templateType === "github_copilot";
+    provider.meta?.usage_script?.templateType === 'github_copilot'
   // Hermes v12+ overlay entries live under the `providers:` dict and are
   // read-only here — writes have to go through Hermes Web UI.
   const isHermesReadOnly =
-    appId === "hermes" && isHermesReadOnlyProvider(provider.settingsConfig);
+    appId === 'hermes' && isHermesReadOnlyProvider(provider.settingsConfig)
   const isCodexOauth =
-    provider.meta?.providerType === PROVIDER_TYPES.CODEX_OAUTH;
+    provider.meta?.providerType === PROVIDER_TYPES.CODEX_OAUTH
   const codexNeedsRouting = useMemo(() => {
-    if (appId !== "codex" || provider.category === "official") return false;
-    if (provider.meta?.apiFormat === "openai_chat") return true;
-    const config = (provider.settingsConfig as Record<string, any>)?.config;
+    if (appId !== 'codex' || provider.category === 'official') return false
+    if (provider.meta?.apiFormat === 'openai_chat') return true
+    const config = (provider.settingsConfig as Record<string, any>)?.config
     return (
-      typeof config === "string" &&
+      typeof config === 'string' &&
       isCodexChatWireApi(extractCodexWireApi(config))
-    );
+    )
   }, [
     appId,
     provider.category,
     provider.meta?.apiFormat,
     (provider.settingsConfig as Record<string, any>)?.config,
-  ]);
+  ])
   // 获取用量数据以判断是否有多套餐
-  // 累加模式应用（OpenCode/OpenClaw/Hermes）：使用 isInConfig 代替 isCurrent
+  // 累加模式应用（OpenCode/OpenClaw/Hermes/Pi）：使用 isInConfig 代替 isCurrent
   const shouldAutoQuery =
-    appId === "opencode" || appId === "openclaw" || appId === "hermes"
+    appId === 'opencode' ||
+    appId === 'openclaw' ||
+    appId === 'hermes' ||
+    appId === 'pi'
       ? isInConfig
-      : isCurrent;
+      : isCurrent
   const autoQueryInterval = shouldAutoQuery
     ? provider.meta?.usage_script?.autoQueryInterval || 0
-    : 0;
+    : 0
 
   const { data: usage } = useUsageQuery(provider.id, appId, {
     enabled: usageEnabled && !isOfficial && !isOfficialSubscriptionUsage,
     autoQueryInterval,
-  });
+  })
 
-  const isTokenPlan =
-    provider.meta?.usage_script?.templateType === "token_plan";
+  const isTokenPlan = provider.meta?.usage_script?.templateType === 'token_plan'
   const hasMultiplePlans =
-    usage?.success && usage.data && usage.data.length > 1 && !isTokenPlan;
+    usage?.success && usage.data && usage.data.length > 1 && !isTokenPlan
 
-  const [isExpanded, setIsExpanded] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false)
 
   useEffect(() => {
     if (hasMultiplePlans) {
-      setIsExpanded(true);
+      setIsExpanded(true)
     }
-  }, [hasMultiplePlans]);
+  }, [hasMultiplePlans])
 
   const handleOpenWebsite = () => {
     if (!isClickableUrl) {
-      return;
+      return
     }
-    onOpenWebsite(displayUrl);
-  };
+    onOpenWebsite(displayUrl)
+  }
 
   // 判断是否是"当前使用中"的供应商
   // - OMO/OMO Slim 供应商：使用 isCurrent
-  // - OpenClaw：使用默认模型归属的 provider 作为当前项（蓝色边框）
+  // - OpenClaw/Pi：使用默认模型归属的 provider 作为当前项（蓝色边框）
   // - OpenCode（非 OMO）：不存在"当前"概念，返回 false
   // - 故障转移模式：代理实际使用的供应商（activeProviderId）
   // - 普通模式：isCurrent
   const isActiveProvider = isAnyOmo
     ? isCurrent
-    : appId === "openclaw"
+    : appId === 'openclaw' || appId === 'pi'
       ? Boolean(isDefaultModel)
-      : appId === "opencode"
+      : appId === 'opencode'
         ? false
         : isAutoFailoverEnabled
           ? activeProviderId === provider.id
-          : isCurrent;
+          : isCurrent
 
-  const shouldUseGreen = !isAnyOmo && isProxyTakeover && isActiveProvider;
-  const hasPersistentConfigHighlight = isAdditiveMode && isInConfig;
+  const shouldUseGreen = !isAnyOmo && isProxyTakeover && isActiveProvider
+  const hasPersistentConfigHighlight = isAdditiveMode && isInConfig
   const shouldUseBlue =
     (isAnyOmo && isActiveProvider) ||
     (!isAnyOmo &&
       !isProxyTakeover &&
-      (isActiveProvider || hasPersistentConfigHighlight));
+      (isActiveProvider || hasPersistentConfigHighlight))
 
   return (
     <div
       className={cn(
-        "relative overflow-hidden rounded-xl border border-border p-4 transition-all duration-300",
-        "bg-card text-card-foreground group",
+        'relative overflow-hidden rounded-xl border border-border p-4 transition-all duration-300',
+        'bg-card text-card-foreground group',
         isAutoFailoverEnabled || isProxyTakeover
-          ? "hover:border-emerald-500/50"
-          : "hover:border-border-active",
+          ? 'hover:border-emerald-500/50'
+          : 'hover:border-border-active',
         shouldUseGreen &&
-          "border-emerald-500/60 shadow-sm shadow-emerald-500/10",
-        shouldUseBlue && "border-blue-500/60 shadow-sm shadow-blue-500/10",
+          'border-emerald-500/60 shadow-sm shadow-emerald-500/10',
+        shouldUseBlue && 'border-blue-500/60 shadow-sm shadow-blue-500/10',
         !(isActiveProvider || hasPersistentConfigHighlight) &&
-          "hover:shadow-sm",
+          'hover:shadow-sm',
         dragHandleProps?.isDragging &&
-          "cursor-grabbing border-primary shadow-lg scale-105 z-10",
+          'cursor-grabbing border-primary shadow-lg scale-105 z-10'
       )}
     >
       <div
         className={cn(
-          "absolute inset-0 bg-gradient-to-r to-transparent transition-opacity duration-500 pointer-events-none",
-          shouldUseGreen && "from-emerald-500/10",
-          shouldUseBlue && "from-blue-500/10",
-          !shouldUseGreen && !shouldUseBlue && "from-primary/10",
+          'absolute inset-0 bg-gradient-to-r to-transparent transition-opacity duration-500 pointer-events-none',
+          shouldUseGreen && 'from-emerald-500/10',
+          shouldUseBlue && 'from-blue-500/10',
+          !shouldUseGreen && !shouldUseBlue && 'from-primary/10',
           isActiveProvider || hasPersistentConfigHighlight
-            ? "opacity-100"
-            : "opacity-0",
+            ? 'opacity-100'
+            : 'opacity-0'
         )}
       />
       <div className="relative flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -324,11 +326,11 @@ export function ProviderCard({
           <button
             type="button"
             className={cn(
-              "-ml-1.5 flex-shrink-0 cursor-grab active:cursor-grabbing p-1.5",
-              "text-muted-foreground/50 hover:text-muted-foreground transition-colors",
-              dragHandleProps?.isDragging && "cursor-grabbing",
+              '-ml-1.5 flex-shrink-0 cursor-grab active:cursor-grabbing p-1.5',
+              'text-muted-foreground/50 hover:text-muted-foreground transition-colors',
+              dragHandleProps?.isDragging && 'cursor-grabbing'
             )}
-            aria-label={t("provider.dragHandle")}
+            aria-label={t('provider.dragHandle')}
             {...(dragHandleProps?.attributes ?? {})}
             {...(dragHandleProps?.listeners ?? {})}
           >
@@ -362,47 +364,47 @@ export function ProviderCard({
                 </span>
               )}
 
-              {appId === "claude-desktop" &&
-                provider.category !== "official" &&
-                provider.meta?.claudeDesktopMode === "proxy" && (
+              {appId === 'claude-desktop' &&
+                provider.category !== 'official' &&
+                provider.meta?.claudeDesktopMode === 'proxy' && (
                   <span className="inline-flex items-center rounded-md bg-sky-100 px-1.5 py-0.5 text-[10px] font-semibold text-sky-700 dark:bg-sky-900/40 dark:text-sky-300">
-                    {t("claudeDesktop.modeProxy", {
-                      defaultValue: "需要路由",
+                    {t('claudeDesktop.modeProxy', {
+                      defaultValue: '需要路由',
                     })}
                   </span>
                 )}
 
-              {appId === "claude" &&
-                provider.category !== "official" &&
+              {appId === 'claude' &&
+                provider.category !== 'official' &&
                 provider.meta?.apiFormat &&
-                provider.meta.apiFormat !== "anthropic" && (
+                provider.meta.apiFormat !== 'anthropic' && (
                   <span className="inline-flex items-center rounded-md bg-sky-100 px-1.5 py-0.5 text-[10px] font-semibold text-sky-700 dark:bg-sky-900/40 dark:text-sky-300">
-                    {t("claudeCode.needsRouting", {
-                      defaultValue: "需要路由",
+                    {t('claudeCode.needsRouting', {
+                      defaultValue: '需要路由',
                     })}
                   </span>
                 )}
 
               {codexNeedsRouting && (
                 <span className="inline-flex items-center rounded-md bg-sky-100 px-1.5 py-0.5 text-[10px] font-semibold text-sky-700 dark:bg-sky-900/40 dark:text-sky-300">
-                  {t("codex.needsRouting", {
-                    defaultValue: "需要路由",
+                  {t('codex.needsRouting', {
+                    defaultValue: '需要路由',
                   })}
                 </span>
               )}
 
-              {appId === "claude" && provider.category === "official" && (
+              {appId === 'claude' && provider.category === 'official' && (
                 <span className="inline-flex items-center rounded-md bg-slate-200 px-1.5 py-0.5 text-[10px] font-semibold text-slate-700 dark:bg-slate-700/60 dark:text-slate-200">
-                  {t("claudeCode.noRoutingSupport", {
-                    defaultValue: "不支持路由",
+                  {t('claudeCode.noRoutingSupport', {
+                    defaultValue: '不支持路由',
                   })}
                 </span>
               )}
 
-              {appId === "codex" && provider.category === "official" && (
+              {appId === 'codex' && provider.category === 'official' && (
                 <span className="inline-flex items-center rounded-md bg-slate-200 px-1.5 py-0.5 text-[10px] font-semibold text-slate-700 dark:bg-slate-700/60 dark:text-slate-200">
-                  {t("codex.noRoutingSupport", {
-                    defaultValue: "不支持路由",
+                  {t('codex.noRoutingSupport', {
+                    defaultValue: '不支持路由',
                   })}
                 </span>
               )}
@@ -420,12 +422,12 @@ export function ProviderCard({
                   <FailoverPriorityBadge priority={failoverPriority} />
                 )}
 
-              {provider.category === "third_party" &&
+              {provider.category === 'third_party' &&
                 provider.meta?.isPartner && (
                   <span
                     className="text-yellow-500 dark:text-yellow-400"
-                    title={t("provider.officialPartner", {
-                      defaultValue: "官方合作伙伴",
+                    title={t('provider.officialPartner', {
+                      defaultValue: '官方合作伙伴',
                     })}
                   >
                     ⭐
@@ -435,12 +437,12 @@ export function ProviderCard({
               {isHermesReadOnly && (
                 <span
                   className="inline-flex items-center rounded-md bg-slate-200 px-1.5 py-0.5 text-[10px] font-semibold text-slate-700 dark:bg-slate-700/60 dark:text-slate-200"
-                  title={t("provider.managedByHermesHint", {
-                    defaultValue: "由 Hermes 管理，请在 Hermes Web UI 中编辑",
+                  title={t('provider.managedByHermesHint', {
+                    defaultValue: '由 Hermes 管理，请在 Hermes Web UI 中编辑',
                   })}
                 >
-                  {t("provider.managedByHermes", {
-                    defaultValue: "Hermes Managed",
+                  {t('provider.managedByHermes', {
+                    defaultValue: 'Hermes Managed',
                   })}
                 </span>
               )}
@@ -451,10 +453,10 @@ export function ProviderCard({
                 type="button"
                 onClick={handleOpenWebsite}
                 className={cn(
-                  "inline-flex max-w-full items-center overflow-hidden text-left text-sm",
+                  'inline-flex max-w-full items-center overflow-hidden text-left text-sm',
                   isClickableUrl
-                    ? "text-blue-500 transition-colors hover:underline dark:text-blue-400 cursor-pointer"
-                    : "text-muted-foreground cursor-default",
+                    ? 'text-blue-500 transition-colors hover:underline dark:text-blue-400 cursor-pointer'
+                    : 'text-muted-foreground cursor-default'
                 )}
                 title={displayUrl}
                 disabled={!isClickableUrl}
@@ -494,7 +496,7 @@ export function ProviderCard({
               ) : hasMultiplePlans ? (
                 <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
                   <span className="font-medium">
-                    {t("usage.multiplePlans", {
+                    {t('usage.multiplePlans', {
                       count: usage?.data?.length || 0,
                       defaultValue: `${usage?.data?.length || 0} 个套餐`,
                     })}
@@ -514,14 +516,14 @@ export function ProviderCard({
               {hasMultiplePlans && (
                 <button
                   onClick={(e) => {
-                    e.stopPropagation();
-                    setIsExpanded(!isExpanded);
+                    e.stopPropagation()
+                    setIsExpanded(!isExpanded)
                   }}
                   className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-gray-500 dark:text-gray-400 flex-shrink-0"
                   title={
                     isExpanded
-                      ? t("usage.collapse", { defaultValue: "收起" })
-                      : t("usage.expand", { defaultValue: "展开" })
+                      ? t('usage.collapse', { defaultValue: '收起' })
+                      : t('usage.expand', { defaultValue: '展开' })
                   }
                 >
                   {isExpanded ? (
@@ -553,7 +555,7 @@ export function ProviderCard({
                 // (category === "official") 一律隐藏：它们 base_url 故意留空、走客户端
                 // 默认/OAuth 端点，cc-switch 没有可靠的探测目标（尤其 Claude Desktop
                 // 官方是原生 1P 模式，根本不在请求路径上）。
-                onTest && provider.category !== "official"
+                onTest && provider.category !== 'official'
                   ? () => onTest(provider)
                   : undefined
               }
@@ -599,5 +601,5 @@ export function ProviderCard({
         </div>
       )}
     </div>
-  );
+  )
 }

@@ -1,64 +1,64 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import { useTranslation } from "react-i18next";
-import { useSettingsQuery } from "@/lib/query";
-import type { Settings } from "@/types";
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
+import { useSettingsQuery } from '@/lib/query'
+import type { Settings } from '@/types'
 
-type Language = "zh" | "zh-TW" | "en" | "ja";
+type Language = 'zh' | 'zh-TW' | 'en' | 'ja'
 
-export type SettingsFormState = Omit<Settings, "language"> & {
-  language: Language;
-};
+export type SettingsFormState = Omit<Settings, 'language'> & {
+  language: Language
+}
 
 const normalizeLanguage = (lang?: string | null): Language => {
-  if (!lang) return "zh";
-  const normalized = lang.toLowerCase().replace(/_/g, "-");
+  if (!lang) return 'zh'
+  const normalized = lang.toLowerCase().replace(/_/g, '-')
 
-  if (normalized === "zh") {
-    return "zh";
+  if (normalized === 'zh') {
+    return 'zh'
   }
 
   if (
-    normalized === "zh-tw" ||
-    normalized.startsWith("zh-hant") ||
-    normalized.startsWith("zh-hk") ||
-    normalized.startsWith("zh-mo")
+    normalized === 'zh-tw' ||
+    normalized.startsWith('zh-hant') ||
+    normalized.startsWith('zh-hk') ||
+    normalized.startsWith('zh-mo')
   ) {
-    return "zh-TW";
+    return 'zh-TW'
   }
 
-  if (normalized === "en" || normalized === "ja") {
-    return normalized;
+  if (normalized === 'en' || normalized === 'ja') {
+    return normalized
   }
 
-  if (normalized.startsWith("zh")) {
-    return "zh";
+  if (normalized.startsWith('zh')) {
+    return 'zh'
   }
 
-  return "zh";
-};
+  return 'zh'
+}
 
 const isSupportedLanguage = (lang?: string | null): boolean => {
-  if (!lang) return false;
-  const normalized = lang.toLowerCase().replace(/_/g, "-");
+  if (!lang) return false
+  const normalized = lang.toLowerCase().replace(/_/g, '-')
   return (
-    normalized === "en" || normalized === "ja" || normalized.startsWith("zh")
-  );
-};
+    normalized === 'en' || normalized === 'ja' || normalized.startsWith('zh')
+  )
+}
 
 const sanitizeDir = (value?: string | null): string | undefined => {
-  if (!value) return undefined;
-  const trimmed = value.trim();
-  return trimmed.length > 0 ? trimmed : undefined;
-};
+  if (!value) return undefined
+  const trimmed = value.trim()
+  return trimmed.length > 0 ? trimmed : undefined
+}
 
 export interface UseSettingsFormResult {
-  settings: SettingsFormState | null;
-  isLoading: boolean;
-  initialLanguage: Language;
-  updateSettings: (updates: Partial<SettingsFormState>) => void;
-  resetSettings: (serverData: Settings | null) => void;
-  readPersistedLanguage: () => Language;
-  syncLanguage: (lang: Language) => void;
+  settings: SettingsFormState | null
+  isLoading: boolean
+  initialLanguage: Language
+  updateSettings: (updates: Partial<SettingsFormState>) => void
+  resetSettings: (serverData: Settings | null) => void
+  readPersistedLanguage: () => Language
+  syncLanguage: (lang: Language) => void
 }
 
 /**
@@ -70,42 +70,42 @@ export interface UseSettingsFormResult {
  * - 表单重置
  */
 export function useSettingsForm(): UseSettingsFormResult {
-  const { i18n } = useTranslation();
-  const { data, isLoading } = useSettingsQuery();
+  const { i18n } = useTranslation()
+  const { data, isLoading } = useSettingsQuery()
 
   const [settingsState, setSettingsState] = useState<SettingsFormState | null>(
-    null,
-  );
+    null
+  )
 
-  const initialLanguageRef = useRef<Language>("zh");
+  const initialLanguageRef = useRef<Language>('zh')
 
   const readPersistedLanguage = useCallback((): Language => {
-    if (typeof window !== "undefined") {
-      const stored = window.localStorage.getItem("language");
+    if (typeof window !== 'undefined') {
+      const stored = window.localStorage.getItem('language')
       if (isSupportedLanguage(stored)) {
-        return normalizeLanguage(stored);
+        return normalizeLanguage(stored)
       }
     }
-    return normalizeLanguage(i18n.language);
-  }, [i18n]);
+    return normalizeLanguage(i18n.language)
+  }, [i18n])
 
   const syncLanguage = useCallback(
     (lang: Language) => {
-      const current = normalizeLanguage(i18n.language);
+      const current = normalizeLanguage(i18n.language)
       if (current !== lang) {
-        void i18n.changeLanguage(lang);
+        void i18n.changeLanguage(lang)
       }
     },
-    [i18n],
-  );
+    [i18n]
+  )
 
   // 初始化设置数据
   useEffect(() => {
-    if (!data) return;
+    if (!data) return
 
     const normalizedLanguage = normalizeLanguage(
-      data.language ?? readPersistedLanguage(),
-    );
+      data.language ?? readPersistedLanguage()
+    )
 
     const normalized: SettingsFormState = {
       ...data,
@@ -124,13 +124,15 @@ export function useSettingsForm(): UseSettingsFormResult {
       geminiConfigDir: sanitizeDir(data.geminiConfigDir),
       opencodeConfigDir: sanitizeDir(data.opencodeConfigDir),
       openclawConfigDir: sanitizeDir(data.openclawConfigDir),
+      hermesConfigDir: sanitizeDir(data.hermesConfigDir),
+      piConfigDir: sanitizeDir(data.piConfigDir),
       language: normalizedLanguage,
-    };
+    }
 
-    setSettingsState(normalized);
-    initialLanguageRef.current = normalizedLanguage;
-    syncLanguage(normalizedLanguage);
-  }, [data, readPersistedLanguage, syncLanguage]);
+    setSettingsState(normalized)
+    initialLanguageRef.current = normalizedLanguage
+    syncLanguage(normalizedLanguage)
+  }, [data, readPersistedLanguage, syncLanguage])
 
   const updateSettings = useCallback(
     (updates: Partial<SettingsFormState>) => {
@@ -146,32 +148,32 @@ export function useSettingsForm(): UseSettingsFormResult {
             preserveCodexOfficialAuthOnSwitch: false,
             unifyCodexSessionHistory: false,
             language: readPersistedLanguage(),
-          } as SettingsFormState);
+          } as SettingsFormState)
 
         const next: SettingsFormState = {
           ...base,
           ...updates,
-        };
-
-        if (updates.language) {
-          const normalized = normalizeLanguage(updates.language);
-          next.language = normalized;
-          syncLanguage(normalized);
         }
 
-        return next;
-      });
+        if (updates.language) {
+          const normalized = normalizeLanguage(updates.language)
+          next.language = normalized
+          syncLanguage(normalized)
+        }
+
+        return next
+      })
     },
-    [readPersistedLanguage, syncLanguage],
-  );
+    [readPersistedLanguage, syncLanguage]
+  )
 
   const resetSettings = useCallback(
     (serverData: Settings | null) => {
-      if (!serverData) return;
+      if (!serverData) return
 
       const normalizedLanguage = normalizeLanguage(
-        serverData.language ?? readPersistedLanguage(),
-      );
+        serverData.language ?? readPersistedLanguage()
+      )
 
       const normalized: SettingsFormState = {
         ...serverData,
@@ -190,14 +192,16 @@ export function useSettingsForm(): UseSettingsFormResult {
         geminiConfigDir: sanitizeDir(serverData.geminiConfigDir),
         opencodeConfigDir: sanitizeDir(serverData.opencodeConfigDir),
         openclawConfigDir: sanitizeDir(serverData.openclawConfigDir),
+        hermesConfigDir: sanitizeDir(serverData.hermesConfigDir),
+        piConfigDir: sanitizeDir(serverData.piConfigDir),
         language: normalizedLanguage,
-      };
+      }
 
-      setSettingsState(normalized);
-      syncLanguage(initialLanguageRef.current);
+      setSettingsState(normalized)
+      syncLanguage(initialLanguageRef.current)
     },
-    [readPersistedLanguage, syncLanguage],
-  );
+    [readPersistedLanguage, syncLanguage]
+  )
 
   return {
     settings: settingsState,
@@ -207,5 +211,5 @@ export function useSettingsForm(): UseSettingsFormResult {
     resetSettings,
     readPersistedLanguage,
     syncLanguage,
-  };
+  }
 }

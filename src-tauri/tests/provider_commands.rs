@@ -302,6 +302,7 @@ command = "say"
                 gemini: false,
                 opencode: false,
                 hermes: false,
+                ..Default::default()
             },
             description: None,
             homepage: None,

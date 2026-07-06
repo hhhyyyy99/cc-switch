@@ -17,6 +17,14 @@ pub struct McpApps {
     pub opencode: bool,
     #[serde(default)]
     pub hermes: bool,
+    #[serde(
+        rename = "pi",
+        alias = "pi-coding-agent",
+        alias = "piCodingAgent",
+        alias = "pi_coding_agent",
+        default
+    )]
+    pub pi_coding_agent: bool,
 }
 
 impl McpApps {
@@ -29,6 +37,7 @@ impl McpApps {
             AppType::OpenCode => self.opencode,
             AppType::OpenClaw => false, // OpenClaw doesn't support MCP
             AppType::Hermes => self.hermes,
+            AppType::Pi => self.pi_coding_agent,
             AppType::ClaudeDesktop => false,
         }
     }
@@ -42,6 +51,7 @@ impl McpApps {
             AppType::OpenCode => self.opencode = enabled,
             AppType::OpenClaw => {} // OpenClaw doesn't support MCP, ignore
             AppType::Hermes => self.hermes = enabled,
+            AppType::Pi => self.pi_coding_agent = enabled,
             AppType::ClaudeDesktop => {} // Claude Desktop 3P provider config doesn't support MCP here
         }
     }
@@ -64,12 +74,20 @@ impl McpApps {
         if self.hermes {
             apps.push(AppType::Hermes);
         }
+        if self.pi_coding_agent {
+            apps.push(AppType::Pi);
+        }
         apps
     }
 
     /// 检查是否所有应用都未启用
     pub fn is_empty(&self) -> bool {
-        !self.claude && !self.codex && !self.gemini && !self.opencode && !self.hermes
+        !self.claude
+            && !self.codex
+            && !self.gemini
+            && !self.opencode
+            && !self.hermes
+            && !self.pi_coding_agent
     }
 }
 
@@ -86,6 +104,14 @@ pub struct SkillApps {
     pub opencode: bool,
     #[serde(default)]
     pub hermes: bool,
+    #[serde(
+        rename = "pi",
+        alias = "pi-coding-agent",
+        alias = "piCodingAgent",
+        alias = "pi_coding_agent",
+        default
+    )]
+    pub pi_coding_agent: bool,
 }
 
 impl SkillApps {
@@ -97,6 +123,7 @@ impl SkillApps {
             AppType::Gemini => self.gemini,
             AppType::OpenCode => self.opencode,
             AppType::Hermes => self.hermes,
+            AppType::Pi => self.pi_coding_agent,
             AppType::OpenClaw => false, // OpenClaw doesn't support Skills
             AppType::ClaudeDesktop => false,
         }
@@ -110,6 +137,7 @@ impl SkillApps {
             AppType::Gemini => self.gemini = enabled,
             AppType::OpenCode => self.opencode = enabled,
             AppType::Hermes => self.hermes = enabled,
+            AppType::Pi => self.pi_coding_agent = enabled,
             AppType::OpenClaw => {} // OpenClaw doesn't support Skills, ignore
             AppType::ClaudeDesktop => {} // Claude Desktop 3P profiles don't use CC Switch skill sync
         }
@@ -133,12 +161,20 @@ impl SkillApps {
         if self.hermes {
             apps.push(AppType::Hermes);
         }
+        if self.pi_coding_agent {
+            apps.push(AppType::Pi);
+        }
         apps
     }
 
     /// 检查是否所有应用都未启用
     pub fn is_empty(&self) -> bool {
-        !self.claude && !self.codex && !self.gemini && !self.opencode && !self.hermes
+        !self.claude
+            && !self.codex
+            && !self.gemini
+            && !self.opencode
+            && !self.hermes
+            && !self.pi_coding_agent
     }
 
     /// 仅启用指定应用（其他应用设为禁用）
@@ -280,6 +316,15 @@ pub struct McpRoot {
     /// Hermes MCP 配置（实际使用 config.yaml）
     #[serde(default, skip_serializing_if = "McpConfig::is_empty")]
     pub hermes: McpConfig,
+    #[serde(
+        rename = "pi",
+        alias = "pi-coding-agent",
+        alias = "piCodingAgent",
+        alias = "pi_coding_agent",
+        default,
+        skip_serializing_if = "McpConfig::is_empty"
+    )]
+    pub pi_coding_agent: McpConfig,
 }
 
 impl Default for McpRoot {
@@ -295,6 +340,7 @@ impl Default for McpRoot {
             opencode: McpConfig::default(),
             openclaw: McpConfig::default(),
             hermes: McpConfig::default(),
+            pi_coding_agent: McpConfig::default(),
         }
     }
 }
@@ -328,6 +374,14 @@ pub struct PromptRoot {
     pub openclaw: PromptConfig,
     #[serde(default)]
     pub hermes: PromptConfig,
+    #[serde(
+        rename = "pi",
+        alias = "pi-coding-agent",
+        alias = "piCodingAgent",
+        alias = "pi_coding_agent",
+        default
+    )]
+    pub pi_coding_agent: PromptConfig,
 }
 
 use crate::config::{copy_file, get_app_config_dir, get_app_config_path, write_json_file};
@@ -351,6 +405,13 @@ pub enum AppType {
     OpenCode,
     OpenClaw,
     Hermes,
+    #[serde(
+        rename = "pi",
+        alias = "pi-coding-agent",
+        alias = "pi_coding_agent",
+        alias = "piCodingAgent"
+    )]
+    Pi,
 }
 
 impl AppType {
@@ -363,6 +424,7 @@ impl AppType {
             AppType::OpenCode => "opencode",
             AppType::OpenClaw => "openclaw",
             AppType::Hermes => "hermes",
+            AppType::Pi => "pi",
         }
     }
 
@@ -373,7 +435,7 @@ impl AppType {
     pub fn is_additive_mode(&self) -> bool {
         matches!(
             self,
-            AppType::OpenCode | AppType::OpenClaw | AppType::Hermes
+            AppType::OpenCode | AppType::OpenClaw | AppType::Hermes | AppType::Pi
         )
     }
 
@@ -387,6 +449,7 @@ impl AppType {
             AppType::OpenCode,
             AppType::OpenClaw,
             AppType::Hermes,
+            AppType::Pi,
         ]
         .into_iter()
     }
@@ -405,10 +468,13 @@ impl FromStr for AppType {
             "opencode" => Ok(AppType::OpenCode),
             "openclaw" => Ok(AppType::OpenClaw),
             "hermes" => Ok(AppType::Hermes),
+            "pi-coding-agent" | "pi_coding_agent" | "picodingagent" | "pi" => {
+                Ok(AppType::Pi)
+            }
             other => Err(AppError::localized(
                 "unsupported_app",
-                format!("不支持的应用标识: '{other}'。可选值: claude, claude-desktop, codex, gemini, opencode, openclaw, hermes。"),
-                format!("Unsupported app id: '{other}'. Allowed: claude, claude-desktop, codex, gemini, opencode, openclaw, hermes."),
+                format!("不支持的应用标识: '{other}'。可选值: claude, claude-desktop, codex, gemini, opencode, openclaw, hermes, pi。"),
+                format!("Unsupported app id: '{other}'. Allowed: claude, claude-desktop, codex, gemini, opencode, openclaw, hermes, pi."),
             )),
         }
     }
@@ -434,6 +500,16 @@ pub struct CommonConfigSnippets {
 
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub hermes: Option<String>,
+
+    #[serde(
+        rename = "pi",
+        alias = "pi-coding-agent",
+        alias = "piCodingAgent",
+        alias = "pi_coding_agent",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub pi_coding_agent: Option<String>,
 }
 
 impl CommonConfigSnippets {
@@ -447,6 +523,7 @@ impl CommonConfigSnippets {
             AppType::OpenCode => self.opencode.as_ref(),
             AppType::OpenClaw => self.openclaw.as_ref(),
             AppType::Hermes => self.hermes.as_ref(),
+            AppType::Pi => self.pi_coding_agent.as_ref(),
         }
     }
 
@@ -460,6 +537,7 @@ impl CommonConfigSnippets {
             AppType::OpenCode => self.opencode = snippet,
             AppType::OpenClaw => self.openclaw = snippet,
             AppType::Hermes => self.hermes = snippet,
+            AppType::Pi => self.pi_coding_agent = snippet,
         }
     }
 }
@@ -503,6 +581,7 @@ impl Default for MultiAppConfig {
         apps.insert("opencode".to_string(), ProviderManager::default());
         apps.insert("openclaw".to_string(), ProviderManager::default());
         apps.insert("hermes".to_string(), ProviderManager::default());
+        apps.insert("pi".to_string(), ProviderManager::default());
 
         Self {
             version: 2,
@@ -591,6 +670,24 @@ impl MultiAppConfig {
             updated = true;
         }
 
+        if let Some(legacy_pi_manager) = config.apps.remove("pi-coding-agent") {
+            let pi_manager = config.apps.entry("pi".to_string()).or_default();
+            for (id, provider) in legacy_pi_manager.providers {
+                pi_manager.providers.entry(id).or_insert(provider);
+            }
+            if pi_manager.current.is_empty() {
+                pi_manager.current = legacy_pi_manager.current;
+            }
+            updated = true;
+        }
+
+        if !config.apps.contains_key("pi") {
+            config
+                .apps
+                .insert("pi".to_string(), ProviderManager::default());
+            updated = true;
+        }
+
         // 执行 MCP 迁移（v3.6.x → v3.7.0）
         let migrated = config.migrate_mcp_to_unified()?;
         if migrated {
@@ -665,6 +762,7 @@ impl MultiAppConfig {
             AppType::OpenCode => &self.mcp.opencode,
             AppType::OpenClaw => &self.mcp.openclaw,
             AppType::Hermes => &self.mcp.hermes,
+            AppType::Pi => &self.mcp.pi_coding_agent,
         }
     }
 
@@ -678,6 +776,7 @@ impl MultiAppConfig {
             AppType::OpenCode => &mut self.mcp.opencode,
             AppType::OpenClaw => &mut self.mcp.openclaw,
             AppType::Hermes => &mut self.mcp.hermes,
+            AppType::Pi => &mut self.mcp.pi_coding_agent,
         }
     }
 
@@ -694,6 +793,7 @@ impl MultiAppConfig {
         Self::auto_import_prompt_if_exists(&mut config, AppType::OpenCode)?;
         Self::auto_import_prompt_if_exists(&mut config, AppType::OpenClaw)?;
         Self::auto_import_prompt_if_exists(&mut config, AppType::Hermes)?;
+        Self::auto_import_prompt_if_exists(&mut config, AppType::Pi)?;
 
         Ok(config)
     }
@@ -717,6 +817,7 @@ impl MultiAppConfig {
             || !self.prompts.opencode.prompts.is_empty()
             || !self.prompts.openclaw.prompts.is_empty()
             || !self.prompts.hermes.prompts.is_empty()
+            || !self.prompts.pi_coding_agent.prompts.is_empty()
         {
             return Ok(false);
         }
@@ -731,6 +832,7 @@ impl MultiAppConfig {
             AppType::OpenCode,
             AppType::OpenClaw,
             AppType::Hermes,
+            AppType::Pi,
         ] {
             // 复用已有的单应用导入逻辑
             if Self::auto_import_prompt_if_exists(self, app)? {
@@ -804,6 +906,7 @@ impl MultiAppConfig {
             AppType::OpenCode => &mut config.prompts.opencode.prompts,
             AppType::OpenClaw => &mut config.prompts.openclaw.prompts,
             AppType::Hermes => &mut config.prompts.hermes.prompts,
+            AppType::Pi => &mut config.prompts.pi_coding_agent.prompts,
         };
 
         prompts.insert(id, prompt);
@@ -846,6 +949,7 @@ impl MultiAppConfig {
                 AppType::OpenCode => &self.mcp.opencode.servers,
                 AppType::OpenClaw => continue, // OpenClaw MCP is still in development, skip
                 AppType::Hermes => continue,   // Hermes didn't exist in v3.6.x, skip
+                AppType::Pi => continue,
             };
 
             for (id, entry) in old_servers {

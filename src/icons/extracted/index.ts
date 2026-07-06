@@ -17,6 +17,7 @@ import _hermes from "./hermes.png";
 import _huoshan from "./huoshan.png";
 import _nekocode from "./nekocode-icon.png";
 import _pateway from "./pateway.jpg";
+import _pi from "./pi.svg?url";
 import _pipellm from "./pipellm.png";
 import _qiniu from "./qiniu.png";
 import _relaxcode from "./relaxcode.png";
@@ -118,6 +119,7 @@ export const iconUrls: Record<string, string> = {
   huoshan: _huoshan,
   nekocode: _nekocode,
   pateway: _pateway,
+  pi: _pi,
   pipellm: _pipellm,
   qiniu: _qiniu,
   relaxcode: _relaxcode,

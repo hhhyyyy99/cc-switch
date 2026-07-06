@@ -6,7 +6,7 @@ import { APP_IDS, APP_ICON_MAP } from "@/config/appConfig";
 interface AppCountBarProps {
   totalLabel: string;
   counts: Partial<Record<AppId, number>>;
-  appIds?: AppId[];
+  appIds?: readonly AppId[];
 }
 
 export const AppCountBar: React.FC<AppCountBarProps> = ({

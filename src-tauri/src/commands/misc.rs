@@ -111,8 +111,8 @@ pub struct ToolVersion {
     wsl_distro: Option<String>,
 }
 
-const VALID_TOOLS: [&str; 6] = [
-    "claude", "codex", "gemini", "opencode", "openclaw", "hermes",
+const VALID_TOOLS: [&str; 7] = [
+    "claude", "codex", "gemini", "opencode", "openclaw", "hermes", "pi",
 ];
 
 #[derive(Debug, Clone, serde::Deserialize)]
@@ -427,6 +427,7 @@ fn tool_display_name(tool: &str) -> &'static str {
         "opencode" => "OpenCode",
         "openclaw" => "OpenClaw",
         "hermes" => "Hermes",
+        "pi" => "Pi Agent",
         _ => "Unknown",
     }
 }
@@ -494,13 +495,14 @@ fn npm_install_command_for(tool: &str) -> Option<&'static str> {
         "gemini" => Some("npm i -g @google/gemini-cli@latest"),
         "opencode" => Some("npm i -g opencode-ai@latest"),
         "openclaw" => Some("npm i -g openclaw@latest"),
+        "pi" => Some("npm i -g @earendil-works/pi-coding-agent@latest"),
         _ => None,
     }
 }
 
 fn official_update_args(tool: &str) -> Option<&'static str> {
     match tool {
-        "claude" | "codex" | "hermes" => Some("update"),
+        "claude" | "codex" | "hermes" | "pi" => Some("update"),
         "openclaw" => Some("update --yes"),
         "opencode" => Some("upgrade"),
         _ => None,
@@ -773,6 +775,9 @@ async fn get_single_tool_version_impl(
         }
         "openclaw" => fetch_npm_latest_for_tool(&client, "openclaw", tool, local).await,
         "hermes" => fetch_pypi_latest_version(&client, "hermes-agent").await,
+        "pi" => {
+            fetch_npm_latest_for_tool(&client, "@earendil-works/pi-coding-agent", tool, local).await
+        }
         _ => None,
     };
 
@@ -1938,6 +1943,7 @@ fn npm_package_for(tool: &str) -> Option<&'static str> {
         "gemini" => Some("@google/gemini-cli"),
         "opencode" => Some("opencode-ai"),
         "openclaw" => Some("openclaw"),
+        "pi" => Some("@earendil-works/pi-coding-agent"),
         _ => None,
     }
 }
@@ -2121,7 +2127,7 @@ fn anchored_official_update_command(tool: &str, bin_path: &str) -> Option<String
 fn prefers_official_update(tool: &str, shell: LifecycleCommandShell) -> bool {
     match shell {
         LifecycleCommandShell::Posix => {
-            matches!(tool, "claude" | "opencode" | "openclaw")
+            matches!(tool, "claude" | "opencode" | "openclaw" | "pi")
         }
         LifecycleCommandShell::WindowsBatch => {
             matches!(

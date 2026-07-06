@@ -1,38 +1,38 @@
-import React, { useMemo, useState, useEffect } from "react";
-import { useTranslation } from "react-i18next";
-import { toast } from "sonner";
-import { Save, Plus, AlertCircle, ChevronDown, ChevronUp } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Input } from "@/components/ui/input";
-import JsonEditor from "@/components/JsonEditor";
-import type { AppId } from "@/lib/api/types";
-import { McpServer, McpServerSpec } from "@/types";
-import { mcpPresets, getMcpPresetWithDescription } from "@/config/mcpPresets";
-import McpWizardModal from "./McpWizardModal";
+import React, { useMemo, useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
+import { toast } from 'sonner'
+import { Save, Plus, AlertCircle, ChevronDown, ChevronUp } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
+import { Input } from '@/components/ui/input'
+import JsonEditor from '@/components/JsonEditor'
+import type { AppId } from '@/lib/api/types'
+import { McpServer, McpServerSpec } from '@/types'
+import { mcpPresets, getMcpPresetWithDescription } from '@/config/mcpPresets'
+import McpWizardModal from './McpWizardModal'
 import {
   extractErrorMessage,
   translateMcpBackendError,
-} from "@/utils/errorUtils";
+} from '@/utils/errorUtils'
 import {
   tomlToMcpServer,
   extractIdFromToml,
   mcpServerToToml,
-} from "@/utils/tomlUtils";
-import { normalizeTomlText } from "@/utils/textNormalization";
-import { parseSmartMcpJson } from "@/utils/formatters";
-import { useMcpValidation } from "./useMcpValidation";
-import { useUpsertMcpServer } from "@/hooks/useMcp";
-import { FullScreenPanel } from "@/components/common/FullScreenPanel";
+} from '@/utils/tomlUtils'
+import { normalizeTomlText } from '@/utils/textNormalization'
+import { parseSmartMcpJson } from '@/utils/formatters'
+import { useMcpValidation } from './useMcpValidation'
+import { useUpsertMcpServer } from '@/hooks/useMcp'
+import { FullScreenPanel } from '@/components/common/FullScreenPanel'
 
 interface McpFormModalProps {
-  editingId?: string;
-  initialData?: McpServer;
-  onSave: () => Promise<void>;
-  onClose: () => void;
-  existingIds?: string[];
-  defaultFormat?: "json" | "toml";
-  defaultEnabledApps?: AppId[];
+  editingId?: string
+  initialData?: McpServer
+  onSave: () => Promise<void>
+  onClose: () => void
+  existingIds?: string[]
+  defaultFormat?: 'json' | 'toml'
+  defaultEnabledApps?: AppId[]
 }
 
 const McpFormModal: React.FC<McpFormModalProps> = ({
@@ -41,321 +41,329 @@ const McpFormModal: React.FC<McpFormModalProps> = ({
   onSave,
   onClose,
   existingIds = [],
-  defaultFormat = "json",
-  defaultEnabledApps = ["claude", "codex", "gemini"],
+  defaultFormat = 'json',
+  defaultEnabledApps = ['claude', 'codex', 'gemini'],
 }) => {
-  const { t } = useTranslation();
+  const { t } = useTranslation()
   const { formatTomlError, validateTomlConfig, validateJsonConfig } =
-    useMcpValidation();
+    useMcpValidation()
 
-  const upsertMutation = useUpsertMcpServer();
+  const upsertMutation = useUpsertMcpServer()
 
-  const [formId, setFormId] = useState(
-    () => editingId || initialData?.id || "",
-  );
-  const [formName, setFormName] = useState(initialData?.name || "");
+  const [formId, setFormId] = useState(() => editingId || initialData?.id || '')
+  const [formName, setFormName] = useState(initialData?.name || '')
   const [formDescription, setFormDescription] = useState(
-    initialData?.description || "",
-  );
-  const [formHomepage, setFormHomepage] = useState(initialData?.homepage || "");
-  const [formDocs, setFormDocs] = useState(initialData?.docs || "");
-  const [formTags, setFormTags] = useState(initialData?.tags?.join(", ") || "");
+    initialData?.description || ''
+  )
+  const [formHomepage, setFormHomepage] = useState(initialData?.homepage || '')
+  const [formDocs, setFormDocs] = useState(initialData?.docs || '')
+  const [formTags, setFormTags] = useState(initialData?.tags?.join(', ') || '')
 
   const [enabledApps, setEnabledApps] = useState<{
-    claude: boolean;
-    codex: boolean;
-    gemini: boolean;
-    opencode: boolean;
-    openclaw: boolean;
-    hermes: boolean;
+    claude: boolean
+    codex: boolean
+    gemini: boolean
+    opencode: boolean
+    openclaw: boolean
+    hermes: boolean
+    pi: boolean
   }>(() => {
     if (initialData?.apps) {
-      return { ...initialData.apps };
+      return {
+        claude: initialData.apps.claude ?? false,
+        codex: initialData.apps.codex ?? false,
+        gemini: initialData.apps.gemini ?? false,
+        opencode: initialData.apps.opencode ?? false,
+        openclaw: initialData.apps.openclaw ?? false,
+        hermes: initialData.apps.hermes ?? false,
+        pi: initialData.apps['pi'] ?? false,
+      }
     }
     return {
-      claude: defaultEnabledApps.includes("claude"),
-      codex: defaultEnabledApps.includes("codex"),
-      gemini: defaultEnabledApps.includes("gemini"),
-      opencode: defaultEnabledApps.includes("opencode"),
-      openclaw: defaultEnabledApps.includes("openclaw"),
-      hermes: defaultEnabledApps.includes("hermes"),
-    };
-  });
+      claude: defaultEnabledApps.includes('claude'),
+      codex: defaultEnabledApps.includes('codex'),
+      gemini: defaultEnabledApps.includes('gemini'),
+      opencode: defaultEnabledApps.includes('opencode'),
+      openclaw: defaultEnabledApps.includes('openclaw'),
+      hermes: defaultEnabledApps.includes('hermes'),
+      pi: defaultEnabledApps.includes('pi'),
+    }
+  })
 
-  const isEditing = !!editingId;
+  const isEditing = !!editingId
 
   const hasAdditionalInfo = !!(
     initialData?.description ||
     initialData?.tags?.length ||
     initialData?.homepage ||
     initialData?.docs
-  );
+  )
 
   const [showMetadata, setShowMetadata] = useState(
-    isEditing ? hasAdditionalInfo : false,
-  );
+    isEditing ? hasAdditionalInfo : false
+  )
 
   const useTomlFormat = useMemo(() => {
     if (initialData?.server) {
-      return defaultFormat === "toml";
+      return defaultFormat === 'toml'
     }
-    return defaultFormat === "toml";
-  }, [defaultFormat, initialData]);
+    return defaultFormat === 'toml'
+  }, [defaultFormat, initialData])
 
   const [formConfig, setFormConfig] = useState(() => {
-    const spec = initialData?.server;
-    if (!spec) return "";
+    const spec = initialData?.server
+    if (!spec) return ''
     if (useTomlFormat) {
-      return mcpServerToToml(spec);
+      return mcpServerToToml(spec)
     }
-    return JSON.stringify(spec, null, 2);
-  });
+    return JSON.stringify(spec, null, 2)
+  })
 
-  const [configError, setConfigError] = useState("");
-  const [saving, setSaving] = useState(false);
-  const [isWizardOpen, setIsWizardOpen] = useState(false);
-  const [idError, setIdError] = useState("");
-  const [isDarkMode, setIsDarkMode] = useState(false);
+  const [configError, setConfigError] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [isWizardOpen, setIsWizardOpen] = useState(false)
+  const [idError, setIdError] = useState('')
+  const [isDarkMode, setIsDarkMode] = useState(false)
 
   useEffect(() => {
-    setIsDarkMode(document.documentElement.classList.contains("dark"));
+    setIsDarkMode(document.documentElement.classList.contains('dark'))
 
     const observer = new MutationObserver(() => {
-      setIsDarkMode(document.documentElement.classList.contains("dark"));
-    });
+      setIsDarkMode(document.documentElement.classList.contains('dark'))
+    })
 
     observer.observe(document.documentElement, {
       attributes: true,
-      attributeFilter: ["class"],
-    });
+      attributeFilter: ['class'],
+    })
 
-    return () => observer.disconnect();
-  }, []);
+    return () => observer.disconnect()
+  }, [])
 
-  const useToml = useTomlFormat;
+  const useToml = useTomlFormat
 
   const wizardInitialSpec = useMemo(() => {
-    const fallback = initialData?.server;
+    const fallback = initialData?.server
     if (!formConfig.trim()) {
-      return fallback;
+      return fallback
     }
 
     if (useToml) {
       try {
-        return tomlToMcpServer(formConfig);
+        return tomlToMcpServer(formConfig)
       } catch {
-        return fallback;
+        return fallback
       }
     }
 
     try {
-      const parsed = JSON.parse(formConfig);
-      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
-        return parsed as McpServerSpec;
+      const parsed = JSON.parse(formConfig)
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+        return parsed as McpServerSpec
       }
-      return fallback;
+      return fallback
     } catch {
-      return fallback;
+      return fallback
     }
-  }, [formConfig, initialData, useToml]);
+  }, [formConfig, initialData, useToml])
 
   const [selectedPreset, setSelectedPreset] = useState<number | null>(
-    isEditing ? null : -1,
-  );
+    isEditing ? null : -1
+  )
 
   const handleIdChange = (value: string) => {
-    setFormId(value);
+    setFormId(value)
     if (!isEditing) {
-      const exists = existingIds.includes(value.trim());
-      setIdError(exists ? t("mcp.error.idExists") : "");
+      const exists = existingIds.includes(value.trim())
+      setIdError(exists ? t('mcp.error.idExists') : '')
     }
-  };
+  }
 
   const ensureUniqueId = (base: string): string => {
-    let candidate = base.trim();
-    if (!candidate) candidate = "mcp-server";
-    if (!existingIds.includes(candidate)) return candidate;
-    let i = 1;
-    while (existingIds.includes(`${candidate}-${i}`)) i++;
-    return `${candidate}-${i}`;
-  };
+    let candidate = base.trim()
+    if (!candidate) candidate = 'mcp-server'
+    if (!existingIds.includes(candidate)) return candidate
+    let i = 1
+    while (existingIds.includes(`${candidate}-${i}`)) i++
+    return `${candidate}-${i}`
+  }
 
   const applyPreset = (index: number) => {
-    if (index < 0 || index >= mcpPresets.length) return;
-    const preset = mcpPresets[index];
-    const presetWithDesc = getMcpPresetWithDescription(preset, t);
+    if (index < 0 || index >= mcpPresets.length) return
+    const preset = mcpPresets[index]
+    const presetWithDesc = getMcpPresetWithDescription(preset, t)
 
-    const id = ensureUniqueId(presetWithDesc.id);
-    setFormId(id);
-    setFormName(presetWithDesc.name || presetWithDesc.id);
-    setFormDescription(presetWithDesc.description || "");
-    setFormHomepage(presetWithDesc.homepage || "");
-    setFormDocs(presetWithDesc.docs || "");
-    setFormTags(presetWithDesc.tags?.join(", ") || "");
+    const id = ensureUniqueId(presetWithDesc.id)
+    setFormId(id)
+    setFormName(presetWithDesc.name || presetWithDesc.id)
+    setFormDescription(presetWithDesc.description || '')
+    setFormHomepage(presetWithDesc.homepage || '')
+    setFormDocs(presetWithDesc.docs || '')
+    setFormTags(presetWithDesc.tags?.join(', ') || '')
 
     if (useToml) {
-      const toml = mcpServerToToml(presetWithDesc.server);
-      setFormConfig(toml);
-      setConfigError(validateTomlConfig(toml));
+      const toml = mcpServerToToml(presetWithDesc.server)
+      setFormConfig(toml)
+      setConfigError(validateTomlConfig(toml))
     } else {
-      const json = JSON.stringify(presetWithDesc.server, null, 2);
-      setFormConfig(json);
-      setConfigError(validateJsonConfig(json));
+      const json = JSON.stringify(presetWithDesc.server, null, 2)
+      setFormConfig(json)
+      setConfigError(validateJsonConfig(json))
     }
-    setSelectedPreset(index);
-  };
+    setSelectedPreset(index)
+  }
 
   const applyCustom = () => {
-    setSelectedPreset(-1);
-    setFormId("");
-    setFormName("");
-    setFormDescription("");
-    setFormHomepage("");
-    setFormDocs("");
-    setFormTags("");
-    setFormConfig("");
-    setConfigError("");
-  };
+    setSelectedPreset(-1)
+    setFormId('')
+    setFormName('')
+    setFormDescription('')
+    setFormHomepage('')
+    setFormDocs('')
+    setFormTags('')
+    setFormConfig('')
+    setConfigError('')
+  }
 
   const handleConfigChange = (value: string) => {
-    const nextValue = useToml ? normalizeTomlText(value) : value;
-    setFormConfig(nextValue);
+    const nextValue = useToml ? normalizeTomlText(value) : value
+    setFormConfig(nextValue)
 
     if (useToml) {
-      const err = validateTomlConfig(nextValue);
+      const err = validateTomlConfig(nextValue)
       if (err) {
-        setConfigError(err);
-        return;
+        setConfigError(err)
+        return
       }
 
       if (nextValue.trim() && !formId.trim()) {
-        const extractedId = extractIdFromToml(nextValue);
+        const extractedId = extractIdFromToml(nextValue)
         if (extractedId) {
-          setFormId(extractedId);
+          setFormId(extractedId)
         }
       }
     } else {
       try {
-        const result = parseSmartMcpJson(value);
-        const configJson = JSON.stringify(result.config);
-        const validationErr = validateJsonConfig(configJson);
+        const result = parseSmartMcpJson(value)
+        const configJson = JSON.stringify(result.config)
+        const validationErr = validateJsonConfig(configJson)
 
         if (validationErr) {
-          setConfigError(validationErr);
-          return;
+          setConfigError(validationErr)
+          return
         }
 
         if (result.id && !formId.trim() && !isEditing) {
-          const uniqueId = ensureUniqueId(result.id);
-          setFormId(uniqueId);
+          const uniqueId = ensureUniqueId(result.id)
+          setFormId(uniqueId)
 
           if (!formName.trim()) {
-            setFormName(result.id);
+            setFormName(result.id)
           }
         }
 
-        setConfigError("");
+        setConfigError('')
       } catch (err: any) {
-        const errorMessage = err?.message || String(err);
-        setConfigError(t("mcp.error.jsonInvalid") + ": " + errorMessage);
+        const errorMessage = err?.message || String(err)
+        setConfigError(t('mcp.error.jsonInvalid') + ': ' + errorMessage)
       }
     }
-  };
+  }
 
   const handleWizardApply = (title: string, json: string) => {
-    setFormId(title);
+    setFormId(title)
     if (!formName.trim()) {
-      setFormName(title);
+      setFormName(title)
     }
     if (useToml) {
       try {
-        const server = JSON.parse(json) as McpServerSpec;
-        const toml = mcpServerToToml(server);
-        setFormConfig(toml);
-        setConfigError(validateTomlConfig(toml));
+        const server = JSON.parse(json) as McpServerSpec
+        const toml = mcpServerToToml(server)
+        setFormConfig(toml)
+        setConfigError(validateTomlConfig(toml))
       } catch (e: any) {
-        setConfigError(t("mcp.error.jsonInvalid"));
+        setConfigError(t('mcp.error.jsonInvalid'))
       }
     } else {
-      setFormConfig(json);
-      setConfigError(validateJsonConfig(json));
+      setFormConfig(json)
+      setConfigError(validateJsonConfig(json))
     }
-  };
+  }
 
   const handleSubmit = async () => {
-    const trimmedId = formId.trim();
+    const trimmedId = formId.trim()
     if (!trimmedId) {
-      toast.error(t("mcp.error.idRequired"), { duration: 3000 });
-      return;
+      toast.error(t('mcp.error.idRequired'), { duration: 3000 })
+      return
     }
 
     if (!isEditing && existingIds.includes(trimmedId)) {
-      setIdError(t("mcp.error.idExists"));
-      return;
+      setIdError(t('mcp.error.idExists'))
+      return
     }
 
-    let serverSpec: McpServerSpec;
+    let serverSpec: McpServerSpec
 
     if (useToml) {
-      const tomlError = validateTomlConfig(formConfig);
-      setConfigError(tomlError);
+      const tomlError = validateTomlConfig(formConfig)
+      setConfigError(tomlError)
       if (tomlError) {
-        toast.error(t("mcp.error.tomlInvalid"), { duration: 3000 });
-        return;
+        toast.error(t('mcp.error.tomlInvalid'), { duration: 3000 })
+        return
       }
 
       if (!formConfig.trim()) {
         serverSpec = {
-          type: "stdio",
-          command: "",
+          type: 'stdio',
+          command: '',
           args: [],
-        };
+        }
       } else {
         try {
-          serverSpec = tomlToMcpServer(formConfig);
+          serverSpec = tomlToMcpServer(formConfig)
         } catch (e: any) {
-          const msg = e?.message || String(e);
-          setConfigError(formatTomlError(msg));
-          toast.error(t("mcp.error.tomlInvalid"), { duration: 4000 });
-          return;
+          const msg = e?.message || String(e)
+          setConfigError(formatTomlError(msg))
+          toast.error(t('mcp.error.tomlInvalid'), { duration: 4000 })
+          return
         }
       }
     } else {
       if (!formConfig.trim()) {
         serverSpec = {
-          type: "stdio",
-          command: "",
+          type: 'stdio',
+          command: '',
           args: [],
-        };
+        }
       } else {
         try {
-          const result = parseSmartMcpJson(formConfig);
-          serverSpec = result.config as McpServerSpec;
+          const result = parseSmartMcpJson(formConfig)
+          serverSpec = result.config as McpServerSpec
         } catch (e: any) {
-          const errorMessage = e?.message || String(e);
-          setConfigError(t("mcp.error.jsonInvalid") + ": " + errorMessage);
-          toast.error(t("mcp.error.jsonInvalid"), { duration: 4000 });
-          return;
+          const errorMessage = e?.message || String(e)
+          setConfigError(t('mcp.error.jsonInvalid') + ': ' + errorMessage)
+          toast.error(t('mcp.error.jsonInvalid'), { duration: 4000 })
+          return
         }
       }
     }
 
-    if (serverSpec?.type === "stdio" && !serverSpec?.command?.trim()) {
-      toast.error(t("mcp.error.commandRequired"), { duration: 3000 });
-      return;
+    if (serverSpec?.type === 'stdio' && !serverSpec?.command?.trim()) {
+      toast.error(t('mcp.error.commandRequired'), { duration: 3000 })
+      return
     }
     if (
-      (serverSpec?.type === "http" || serverSpec?.type === "sse") &&
+      (serverSpec?.type === 'http' || serverSpec?.type === 'sse') &&
       !serverSpec?.url?.trim()
     ) {
-      toast.error(t("mcp.wizard.urlRequired"), { duration: 3000 });
-      return;
+      toast.error(t('mcp.wizard.urlRequired'), { duration: 3000 })
+      return
     }
 
-    setSaving(true);
+    setSaving(true)
     try {
-      const nameTrimmed = (formName || trimmedId).trim();
-      const finalName = nameTrimmed || trimmedId;
+      const nameTrimmed = (formName || trimmedId).trim()
+      const finalName = nameTrimmed || trimmedId
 
       const entry: McpServer = {
         ...(initialData ? { ...initialData } : {}),
@@ -363,55 +371,55 @@ const McpFormModal: React.FC<McpFormModalProps> = ({
         name: finalName,
         server: serverSpec,
         apps: enabledApps,
-      };
+      }
 
-      const descriptionTrimmed = formDescription.trim();
+      const descriptionTrimmed = formDescription.trim()
       if (descriptionTrimmed) {
-        entry.description = descriptionTrimmed;
+        entry.description = descriptionTrimmed
       } else {
-        delete entry.description;
+        delete entry.description
       }
 
-      const homepageTrimmed = formHomepage.trim();
+      const homepageTrimmed = formHomepage.trim()
       if (homepageTrimmed) {
-        entry.homepage = homepageTrimmed;
+        entry.homepage = homepageTrimmed
       } else {
-        delete entry.homepage;
+        delete entry.homepage
       }
 
-      const docsTrimmed = formDocs.trim();
+      const docsTrimmed = formDocs.trim()
       if (docsTrimmed) {
-        entry.docs = docsTrimmed;
+        entry.docs = docsTrimmed
       } else {
-        delete entry.docs;
+        delete entry.docs
       }
 
       const parsedTags = formTags
-        .split(",")
+        .split(',')
         .map((tag) => tag.trim())
-        .filter((tag) => tag.length > 0);
+        .filter((tag) => tag.length > 0)
       if (parsedTags.length > 0) {
-        entry.tags = parsedTags;
+        entry.tags = parsedTags
       } else {
-        delete entry.tags;
+        delete entry.tags
       }
 
-      await upsertMutation.mutateAsync(entry);
-      toast.success(t("common.success"), { closeButton: true });
-      await onSave();
+      await upsertMutation.mutateAsync(entry)
+      toast.success(t('common.success'), { closeButton: true })
+      await onSave()
     } catch (error: any) {
-      const detail = extractErrorMessage(error);
-      const mapped = translateMcpBackendError(detail, t);
-      const msg = mapped || detail || t("mcp.error.saveFailed");
-      toast.error(msg, { duration: mapped || detail ? 6000 : 4000 });
+      const detail = extractErrorMessage(error)
+      const mapped = translateMcpBackendError(detail, t)
+      const msg = mapped || detail || t('mcp.error.saveFailed')
+      toast.error(msg, { duration: mapped || detail ? 6000 : 4000 })
     } finally {
-      setSaving(false);
+      setSaving(false)
     }
-  };
+  }
 
   const getFormTitle = () => {
-    return isEditing ? t("mcp.editServer") : t("mcp.addServer");
-  };
+    return isEditing ? t('mcp.editServer') : t('mcp.addServer')
+  }
 
   return (
     <>
@@ -428,10 +436,10 @@ const McpFormModal: React.FC<McpFormModalProps> = ({
           >
             {isEditing ? <Save size={16} /> : <Plus size={16} />}
             {saving
-              ? t("common.saving")
+              ? t('common.saving')
               : isEditing
-                ? t("common.save")
-                : t("common.add")}
+                ? t('common.save')
+                : t('common.add')}
           </Button>
         }
       >
@@ -442,7 +450,7 @@ const McpFormModal: React.FC<McpFormModalProps> = ({
             {!isEditing && (
               <div>
                 <label className="block text-sm font-medium text-foreground mb-3">
-                  {t("mcp.presets.title")}
+                  {t('mcp.presets.title')}
                 </label>
                 <div className="flex flex-wrap gap-2">
                   <button
@@ -450,14 +458,14 @@ const McpFormModal: React.FC<McpFormModalProps> = ({
                     onClick={applyCustom}
                     className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                       selectedPreset === -1
-                        ? "bg-emerald-500 text-white dark:bg-emerald-600"
-                        : "bg-accent text-muted-foreground hover:bg-accent/80"
+                        ? 'bg-emerald-500 text-white dark:bg-emerald-600'
+                        : 'bg-accent text-muted-foreground hover:bg-accent/80'
                     }`}
                   >
-                    {t("presetSelector.custom")}
+                    {t('presetSelector.custom')}
                   </button>
                   {mcpPresets.map((preset, idx) => {
-                    const descriptionKey = `mcp.presets.${preset.id}.description`;
+                    const descriptionKey = `mcp.presets.${preset.id}.description`
                     return (
                       <button
                         key={preset.id}
@@ -465,14 +473,14 @@ const McpFormModal: React.FC<McpFormModalProps> = ({
                         onClick={() => applyPreset(idx)}
                         className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                           selectedPreset === idx
-                            ? "bg-emerald-500 text-white dark:bg-emerald-600"
-                            : "bg-accent text-muted-foreground hover:bg-accent/80"
+                            ? 'bg-emerald-500 text-white dark:bg-emerald-600'
+                            : 'bg-accent text-muted-foreground hover:bg-accent/80'
                         }`}
                         title={t(descriptionKey)}
                       >
                         {preset.id}
                       </button>
-                    );
+                    )
                   })}
                 </div>
               </div>
@@ -482,7 +490,7 @@ const McpFormModal: React.FC<McpFormModalProps> = ({
             <div>
               <div className="flex items-center justify-between mb-2">
                 <label className="block text-sm font-medium text-foreground">
-                  {t("mcp.form.title")} <span className="text-red-500">*</span>
+                  {t('mcp.form.title')} <span className="text-red-500">*</span>
                 </label>
                 {!isEditing && idError && (
                   <span className="text-xs text-red-500 dark:text-red-400">
@@ -492,7 +500,7 @@ const McpFormModal: React.FC<McpFormModalProps> = ({
               </div>
               <Input
                 type="text"
-                placeholder={t("mcp.form.titlePlaceholder")}
+                placeholder={t('mcp.form.titlePlaceholder')}
                 value={formId}
                 onChange={(e) => handleIdChange(e.target.value)}
                 disabled={isEditing}
@@ -502,11 +510,11 @@ const McpFormModal: React.FC<McpFormModalProps> = ({
             {/* Name */}
             <div>
               <label className="block text-sm font-medium text-foreground mb-2">
-                {t("mcp.form.name")}
+                {t('mcp.form.name')}
               </label>
               <Input
                 type="text"
-                placeholder={t("mcp.form.namePlaceholder")}
+                placeholder={t('mcp.form.namePlaceholder')}
                 value={formName}
                 onChange={(e) => setFormName(e.target.value)}
               />
@@ -515,7 +523,7 @@ const McpFormModal: React.FC<McpFormModalProps> = ({
             {/* 启用到哪些应用 */}
             <div>
               <label className="block text-sm font-medium text-foreground mb-3">
-                {t("mcp.form.enabledApps")}
+                {t('mcp.form.enabledApps')}
               </label>
               <div className="flex flex-wrap gap-4">
                 <div className="flex items-center gap-2">
@@ -530,7 +538,7 @@ const McpFormModal: React.FC<McpFormModalProps> = ({
                     htmlFor="enable-claude"
                     className="text-sm text-foreground cursor-pointer select-none"
                   >
-                    {t("mcp.unifiedPanel.apps.claude")}
+                    {t('mcp.unifiedPanel.apps.claude')}
                   </label>
                 </div>
 
@@ -546,7 +554,7 @@ const McpFormModal: React.FC<McpFormModalProps> = ({
                     htmlFor="enable-codex"
                     className="text-sm text-foreground cursor-pointer select-none"
                   >
-                    {t("mcp.unifiedPanel.apps.codex")}
+                    {t('mcp.unifiedPanel.apps.codex')}
                   </label>
                 </div>
 
@@ -562,7 +570,7 @@ const McpFormModal: React.FC<McpFormModalProps> = ({
                     htmlFor="enable-gemini"
                     className="text-sm text-foreground cursor-pointer select-none"
                   >
-                    {t("mcp.unifiedPanel.apps.gemini")}
+                    {t('mcp.unifiedPanel.apps.gemini')}
                   </label>
                 </div>
 
@@ -578,7 +586,7 @@ const McpFormModal: React.FC<McpFormModalProps> = ({
                     htmlFor="enable-opencode"
                     className="text-sm text-foreground cursor-pointer select-none"
                   >
-                    {t("mcp.unifiedPanel.apps.opencode")}
+                    {t('mcp.unifiedPanel.apps.opencode')}
                   </label>
                 </div>
 
@@ -594,7 +602,26 @@ const McpFormModal: React.FC<McpFormModalProps> = ({
                     htmlFor="enable-hermes"
                     className="text-sm text-foreground cursor-pointer select-none"
                   >
-                    {t("mcp.unifiedPanel.apps.hermes")}
+                    {t('mcp.unifiedPanel.apps.hermes')}
+                  </label>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    id="enable-pi"
+                    checked={enabledApps['pi']}
+                    onCheckedChange={(checked: boolean) =>
+                      setEnabledApps({
+                        ...enabledApps,
+                        pi: checked,
+                      })
+                    }
+                  />
+                  <label
+                    htmlFor="enable-pi"
+                    className="text-sm text-foreground cursor-pointer select-none"
+                  >
+                    {t('mcp.unifiedPanel.apps.pi')}
                   </label>
                 </div>
               </div>
@@ -612,7 +639,7 @@ const McpFormModal: React.FC<McpFormModalProps> = ({
                 ) : (
                   <ChevronDown size={16} />
                 )}
-                {t("mcp.form.additionalInfo")}
+                {t('mcp.form.additionalInfo')}
               </button>
             </div>
 
@@ -621,11 +648,11 @@ const McpFormModal: React.FC<McpFormModalProps> = ({
               <>
                 <div>
                   <label className="block text-sm font-medium text-foreground mb-2">
-                    {t("mcp.form.description")}
+                    {t('mcp.form.description')}
                   </label>
                   <Input
                     type="text"
-                    placeholder={t("mcp.form.descriptionPlaceholder")}
+                    placeholder={t('mcp.form.descriptionPlaceholder')}
                     value={formDescription}
                     onChange={(e) => setFormDescription(e.target.value)}
                   />
@@ -633,11 +660,11 @@ const McpFormModal: React.FC<McpFormModalProps> = ({
 
                 <div>
                   <label className="block text-sm font-medium text-foreground mb-2">
-                    {t("mcp.form.tags")}
+                    {t('mcp.form.tags')}
                   </label>
                   <Input
                     type="text"
-                    placeholder={t("mcp.form.tagsPlaceholder")}
+                    placeholder={t('mcp.form.tagsPlaceholder')}
                     value={formTags}
                     onChange={(e) => setFormTags(e.target.value)}
                   />
@@ -645,11 +672,11 @@ const McpFormModal: React.FC<McpFormModalProps> = ({
 
                 <div>
                   <label className="block text-sm font-medium text-foreground mb-2">
-                    {t("mcp.form.homepage")}
+                    {t('mcp.form.homepage')}
                   </label>
                   <Input
                     type="text"
-                    placeholder={t("mcp.form.homepagePlaceholder")}
+                    placeholder={t('mcp.form.homepagePlaceholder')}
                     value={formHomepage}
                     onChange={(e) => setFormHomepage(e.target.value)}
                   />
@@ -657,11 +684,11 @@ const McpFormModal: React.FC<McpFormModalProps> = ({
 
                 <div>
                   <label className="block text-sm font-medium text-foreground mb-2">
-                    {t("mcp.form.docs")}
+                    {t('mcp.form.docs')}
                   </label>
                   <Input
                     type="text"
-                    placeholder={t("mcp.form.docsPlaceholder")}
+                    placeholder={t('mcp.form.docsPlaceholder')}
                     value={formDocs}
                     onChange={(e) => setFormDocs(e.target.value)}
                   />
@@ -674,7 +701,7 @@ const McpFormModal: React.FC<McpFormModalProps> = ({
           <div className="glass rounded-xl p-6 border border-white/10 flex flex-col flex-1 min-h-0">
             <div className="flex items-center justify-between mb-4 flex-shrink-0">
               <label className="text-sm font-medium text-foreground">
-                {useToml ? t("mcp.form.tomlConfig") : t("mcp.form.jsonConfig")}
+                {useToml ? t('mcp.form.tomlConfig') : t('mcp.form.jsonConfig')}
               </label>
               {(isEditing || selectedPreset === -1) && (
                 <button
@@ -682,7 +709,7 @@ const McpFormModal: React.FC<McpFormModalProps> = ({
                   onClick={() => setIsWizardOpen(true)}
                   className="text-sm text-blue-500 dark:text-blue-400 hover:text-blue-600 dark:hover:text-blue-300 transition-colors"
                 >
-                  {t("mcp.form.useWizard")}
+                  {t('mcp.form.useWizard')}
                 </button>
               )}
             </div>
@@ -693,13 +720,13 @@ const McpFormModal: React.FC<McpFormModalProps> = ({
                   onChange={handleConfigChange}
                   placeholder={
                     useToml
-                      ? t("mcp.form.tomlPlaceholder")
-                      : t("mcp.form.jsonPlaceholder")
+                      ? t('mcp.form.tomlPlaceholder')
+                      : t('mcp.form.jsonPlaceholder')
                   }
                   darkMode={isDarkMode}
                   rows={12}
                   showValidation={!useToml}
-                  language={useToml ? "javascript" : "json"}
+                  language={useToml ? 'javascript' : 'json'}
                   height="100%"
                 />
               </div>
@@ -723,7 +750,7 @@ const McpFormModal: React.FC<McpFormModalProps> = ({
         initialServer={wizardInitialSpec}
       />
     </>
-  );
-};
+  )
+}
 
-export default McpFormModal;
+export default McpFormModal

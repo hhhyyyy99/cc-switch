@@ -1,15 +1,15 @@
-import React, { useMemo, useState } from "react";
-import { useTranslation } from "react-i18next";
+import React, { useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Sparkles,
   Trash2,
   ExternalLink,
   RefreshCw,
   Loader2,
-} from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { TooltipProvider } from "@/components/ui/tooltip";
+} from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { TooltipProvider } from '@/components/ui/tooltip'
 import {
   type ImportSkillSelection,
   type SkillBackupEntry,
@@ -26,15 +26,15 @@ import {
   useUpdateSkill,
   type InstalledSkill,
   type SkillUpdateInfo,
-} from "@/hooks/useSkills";
-import type { AppId } from "@/lib/api/types";
-import { ConfirmDialog } from "@/components/ConfirmDialog";
-import { settingsApi, skillsApi } from "@/lib/api";
-import { toast } from "sonner";
-import { SKILLS_APP_IDS } from "@/config/appConfig";
-import { AppCountBar } from "@/components/common/AppCountBar";
-import { AppToggleGroup } from "@/components/common/AppToggleGroup";
-import { ListItemRow } from "@/components/common/ListItemRow";
+} from '@/hooks/useSkills'
+import type { AppId } from '@/lib/api/types'
+import { ConfirmDialog } from '@/components/ConfirmDialog'
+import { settingsApi, skillsApi } from '@/lib/api'
+import { toast } from 'sonner'
+import { SKILLS_APP_IDS } from '@/config/appConfig'
+import { AppCountBar } from '@/components/common/AppCountBar'
+import { AppToggleGroup } from '@/components/common/AppToggleGroup'
+import { ListItemRow } from '@/components/common/ListItemRow'
 import {
   Dialog,
   DialogContent,
@@ -42,300 +42,301 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
+} from '@/components/ui/dialog'
 
 interface UnifiedSkillsPanelProps {
-  onOpenDiscovery: () => void;
-  currentApp: AppId;
+  onOpenDiscovery: () => void
+  currentApp: AppId
 }
 
 export interface UnifiedSkillsPanelHandle {
-  openDiscovery: () => void;
-  openImport: () => void;
-  openInstallFromZip: () => void;
-  openRestoreFromBackup: () => void;
-  checkUpdates: () => void;
+  openDiscovery: () => void
+  openImport: () => void
+  openInstallFromZip: () => void
+  openRestoreFromBackup: () => void
+  checkUpdates: () => void
 }
 
 function formatSkillBackupDate(unixSeconds: number): string {
-  const date = new Date(unixSeconds * 1000);
+  const date = new Date(unixSeconds * 1000)
   return Number.isNaN(date.getTime())
     ? String(unixSeconds)
-    : date.toLocaleString();
+    : date.toLocaleString()
 }
 
 const UnifiedSkillsPanel = React.forwardRef<
   UnifiedSkillsPanelHandle,
   UnifiedSkillsPanelProps
 >(({ onOpenDiscovery, currentApp }, ref) => {
-  const { t } = useTranslation();
+  const { t } = useTranslation()
   const [confirmDialog, setConfirmDialog] = useState<{
-    isOpen: boolean;
-    title: string;
-    message: string;
-    confirmText?: string;
-    variant?: "destructive" | "info";
-    onConfirm: () => void;
-  } | null>(null);
-  const [importDialogOpen, setImportDialogOpen] = useState(false);
-  const [restoreDialogOpen, setRestoreDialogOpen] = useState(false);
+    isOpen: boolean
+    title: string
+    message: string
+    confirmText?: string
+    variant?: 'destructive' | 'info'
+    onConfirm: () => void
+  } | null>(null)
+  const [importDialogOpen, setImportDialogOpen] = useState(false)
+  const [restoreDialogOpen, setRestoreDialogOpen] = useState(false)
 
-  const { data: skills, isLoading } = useInstalledSkills();
+  const { data: skills, isLoading } = useInstalledSkills()
   const {
     data: skillBackups = [],
     refetch: refetchSkillBackups,
     isFetching: isFetchingSkillBackups,
-  } = useSkillBackups();
-  const deleteBackupMutation = useDeleteSkillBackup();
-  const toggleAppMutation = useToggleSkillApp();
-  const uninstallMutation = useUninstallSkill();
-  const restoreBackupMutation = useRestoreSkillBackup();
+  } = useSkillBackups()
+  const deleteBackupMutation = useDeleteSkillBackup()
+  const toggleAppMutation = useToggleSkillApp()
+  const uninstallMutation = useUninstallSkill()
+  const restoreBackupMutation = useRestoreSkillBackup()
   // enabled: true —— 进入 Skill 页面时自动静默扫描一次（绿点提示来源）
   const { data: unmanagedSkills, refetch: scanUnmanaged } =
-    useScanUnmanagedSkills({ enabled: true });
-  const importMutation = useImportSkillsFromApps();
-  const installFromZipMutation = useInstallSkillsFromZip();
+    useScanUnmanagedSkills({ enabled: true })
+  const importMutation = useImportSkillsFromApps()
+  const installFromZipMutation = useInstallSkillsFromZip()
   const {
     data: skillUpdates,
     refetch: checkUpdates,
     isFetching: isCheckingUpdates,
-  } = useCheckSkillUpdates();
-  const updateSkillMutation = useUpdateSkill();
-  const [isUpdatingAll, setIsUpdatingAll] = useState(false);
+  } = useCheckSkillUpdates()
+  const updateSkillMutation = useUpdateSkill()
+  const [isUpdatingAll, setIsUpdatingAll] = useState(false)
 
   const updatesMap = useMemo(() => {
-    const map: Record<string, SkillUpdateInfo> = {};
+    const map: Record<string, SkillUpdateInfo> = {}
     if (skillUpdates) {
       for (const u of skillUpdates) {
-        map[u.id] = u;
+        map[u.id] = u
       }
     }
-    return map;
-  }, [skillUpdates]);
+    return map
+  }, [skillUpdates])
 
   const enabledCounts = useMemo(() => {
     const counts = {
       claude: 0,
-      "claude-desktop": 0,
+      'claude-desktop': 0,
       codex: 0,
       gemini: 0,
       opencode: 0,
       openclaw: 0,
       hermes: 0,
-    };
-    if (!skills) return counts;
+      'pi': 0,
+    }
+    if (!skills) return counts
     skills.forEach((skill) => {
       for (const app of SKILLS_APP_IDS) {
-        if (skill.apps[app]) counts[app]++;
+        if (skill.apps[app]) counts[app]++
       }
-    });
-    return counts;
-  }, [skills]);
+    })
+    return counts
+  }, [skills])
 
   const handleToggleApp = async (id: string, app: AppId, enabled: boolean) => {
     try {
-      await toggleAppMutation.mutateAsync({ id, app, enabled });
+      await toggleAppMutation.mutateAsync({ id, app, enabled })
     } catch (error) {
-      toast.error(t("common.error"), { description: String(error) });
+      toast.error(t('common.error'), { description: String(error) })
     }
-  };
+  }
 
   const handleUninstall = (skill: InstalledSkill) => {
     setConfirmDialog({
       isOpen: true,
-      title: t("skills.uninstall"),
-      message: t("skills.uninstallConfirm", { name: skill.name }),
+      title: t('skills.uninstall'),
+      message: t('skills.uninstallConfirm', { name: skill.name }),
       onConfirm: async () => {
         try {
           // 构建 skillKey 用于更新 discoverable 缓存
           const installName =
             skill.directory.split(/[/\\]/).pop()?.toLowerCase() ||
-            skill.directory.toLowerCase();
-          const skillKey = `${installName}:${skill.repoOwner?.toLowerCase() || ""}:${skill.repoName?.toLowerCase() || ""}`;
+            skill.directory.toLowerCase()
+          const skillKey = `${installName}:${skill.repoOwner?.toLowerCase() || ''}:${skill.repoName?.toLowerCase() || ''}`
 
           const result = await uninstallMutation.mutateAsync({
             id: skill.id,
             skillKey,
-          });
-          setConfirmDialog(null);
-          toast.success(t("skills.uninstallSuccess", { name: skill.name }), {
+          })
+          setConfirmDialog(null)
+          toast.success(t('skills.uninstallSuccess', { name: skill.name }), {
             description: result.backupPath
-              ? t("skills.backup.location", { path: result.backupPath })
+              ? t('skills.backup.location', { path: result.backupPath })
               : undefined,
             closeButton: true,
-          });
+          })
         } catch (error) {
-          toast.error(t("common.error"), { description: String(error) });
+          toast.error(t('common.error'), { description: String(error) })
         }
       },
-    });
-  };
+    })
+  }
 
   const handleOpenImport = async () => {
     try {
-      const result = await scanUnmanaged();
+      const result = await scanUnmanaged()
       if (!result.data || result.data.length === 0) {
-        toast.success(t("skills.noUnmanagedFound"), { closeButton: true });
-        return;
+        toast.success(t('skills.noUnmanagedFound'), { closeButton: true })
+        return
       }
-      setImportDialogOpen(true);
+      setImportDialogOpen(true)
     } catch (error) {
-      toast.error(t("common.error"), { description: String(error) });
+      toast.error(t('common.error'), { description: String(error) })
     }
-  };
+  }
 
   const handleImport = async (imports: ImportSkillSelection[]) => {
     try {
-      const imported = await importMutation.mutateAsync(imports);
-      setImportDialogOpen(false);
-      toast.success(t("skills.importSuccess", { count: imported.length }), {
+      const imported = await importMutation.mutateAsync(imports)
+      setImportDialogOpen(false)
+      toast.success(t('skills.importSuccess', { count: imported.length }), {
         closeButton: true,
-      });
+      })
     } catch (error) {
-      toast.error(t("common.error"), { description: String(error) });
+      toast.error(t('common.error'), { description: String(error) })
     }
-  };
+  }
 
   const handleInstallFromZip = async () => {
     try {
-      const filePath = await skillsApi.openZipFileDialog();
-      if (!filePath) return;
+      const filePath = await skillsApi.openZipFileDialog()
+      if (!filePath) return
 
       const installed = await installFromZipMutation.mutateAsync({
         filePath,
         currentApp,
-      });
+      })
 
       if (installed.length === 0) {
-        toast.info(t("skills.installFromZip.noSkillsFound"), {
+        toast.info(t('skills.installFromZip.noSkillsFound'), {
           closeButton: true,
-        });
+        })
       } else if (installed.length === 1) {
         toast.success(
-          t("skills.installFromZip.successSingle", { name: installed[0].name }),
-          { closeButton: true },
-        );
+          t('skills.installFromZip.successSingle', { name: installed[0].name }),
+          { closeButton: true }
+        )
       } else {
         toast.success(
-          t("skills.installFromZip.successMultiple", {
+          t('skills.installFromZip.successMultiple', {
             count: installed.length,
           }),
-          { closeButton: true },
-        );
+          { closeButton: true }
+        )
       }
     } catch (error) {
-      toast.error(t("skills.installFailed"), { description: String(error) });
+      toast.error(t('skills.installFailed'), { description: String(error) })
     }
-  };
+  }
 
   const handleCheckUpdates = async () => {
     try {
-      const result = await checkUpdates();
-      const updates = result.data || [];
+      const result = await checkUpdates()
+      const updates = result.data || []
       if (updates.length === 0) {
-        toast.success(t("skills.noUpdates"), { closeButton: true });
+        toast.success(t('skills.noUpdates'), { closeButton: true })
       } else {
-        toast.info(t("skills.updatesFound", { count: updates.length }), {
+        toast.info(t('skills.updatesFound', { count: updates.length }), {
           closeButton: true,
-        });
+        })
       }
     } catch (error) {
-      toast.error(t("common.error"), { description: String(error) });
+      toast.error(t('common.error'), { description: String(error) })
     }
-  };
+  }
 
   const handleUpdateSkill = async (skill: InstalledSkill) => {
     try {
-      const updated = await updateSkillMutation.mutateAsync(skill.id);
-      toast.success(t("skills.updateSuccess", { name: updated.name }), {
+      const updated = await updateSkillMutation.mutateAsync(skill.id)
+      toast.success(t('skills.updateSuccess', { name: updated.name }), {
         closeButton: true,
-      });
+      })
     } catch (error) {
-      toast.error(t("skills.updateFailed"), { description: String(error) });
+      toast.error(t('skills.updateFailed'), { description: String(error) })
     }
-  };
+  }
 
   const handleUpdateAll = async () => {
-    if (!skillUpdates || skillUpdates.length === 0) return;
-    setIsUpdatingAll(true);
-    let successCount = 0;
+    if (!skillUpdates || skillUpdates.length === 0) return
+    setIsUpdatingAll(true)
+    let successCount = 0
     for (const update of skillUpdates) {
       try {
-        await updateSkillMutation.mutateAsync(update.id);
-        successCount++;
+        await updateSkillMutation.mutateAsync(update.id)
+        successCount++
       } catch (error) {
-        toast.error(t("skills.updateFailed"), {
+        toast.error(t('skills.updateFailed'), {
           description: `${update.name}: ${String(error)}`,
-        });
+        })
       }
     }
-    setIsUpdatingAll(false);
+    setIsUpdatingAll(false)
     if (successCount > 0) {
-      toast.success(t("skills.updateAllSuccess", { count: successCount }), {
+      toast.success(t('skills.updateAllSuccess', { count: successCount }), {
         closeButton: true,
-      });
+      })
     }
-  };
+  }
 
   const handleOpenRestoreFromBackup = async () => {
-    setRestoreDialogOpen(true);
+    setRestoreDialogOpen(true)
     try {
-      await refetchSkillBackups();
+      await refetchSkillBackups()
     } catch (error) {
-      toast.error(t("common.error"), { description: String(error) });
+      toast.error(t('common.error'), { description: String(error) })
     }
-  };
+  }
 
   const handleRestoreFromBackup = async (backupId: string) => {
     try {
       const restored = await restoreBackupMutation.mutateAsync({
         backupId,
         currentApp,
-      });
-      setRestoreDialogOpen(false);
+      })
+      setRestoreDialogOpen(false)
       toast.success(
-        t("skills.restoreFromBackup.success", { name: restored.name }),
+        t('skills.restoreFromBackup.success', { name: restored.name }),
         {
           closeButton: true,
-        },
-      );
+        }
+      )
     } catch (error) {
-      toast.error(t("skills.restoreFromBackup.failed"), {
+      toast.error(t('skills.restoreFromBackup.failed'), {
         description: String(error),
-      });
+      })
     }
-  };
+  }
 
   const handleDeleteBackup = (backup: SkillBackupEntry) => {
     setConfirmDialog({
       isOpen: true,
-      title: t("skills.restoreFromBackup.deleteConfirmTitle"),
-      message: t("skills.restoreFromBackup.deleteConfirmMessage", {
+      title: t('skills.restoreFromBackup.deleteConfirmTitle'),
+      message: t('skills.restoreFromBackup.deleteConfirmMessage', {
         name: backup.skill.name,
       }),
-      confirmText: t("skills.restoreFromBackup.delete"),
-      variant: "destructive",
+      confirmText: t('skills.restoreFromBackup.delete'),
+      variant: 'destructive',
       onConfirm: async () => {
         try {
-          await deleteBackupMutation.mutateAsync(backup.backupId);
-          await refetchSkillBackups();
-          setConfirmDialog(null);
+          await deleteBackupMutation.mutateAsync(backup.backupId)
+          await refetchSkillBackups()
+          setConfirmDialog(null)
           toast.success(
-            t("skills.restoreFromBackup.deleteSuccess", {
+            t('skills.restoreFromBackup.deleteSuccess', {
               name: backup.skill.name,
             }),
             {
               closeButton: true,
-            },
-          );
+            }
+          )
         } catch (error) {
-          toast.error(t("skills.restoreFromBackup.deleteFailed"), {
+          toast.error(t('skills.restoreFromBackup.deleteFailed'), {
             description: String(error),
-          });
+          })
         }
       },
-    });
-  };
+    })
+  }
 
   React.useImperativeHandle(ref, () => ({
     openDiscovery: onOpenDiscovery,
@@ -343,13 +344,13 @@ const UnifiedSkillsPanel = React.forwardRef<
     openInstallFromZip: handleInstallFromZip,
     openRestoreFromBackup: handleOpenRestoreFromBackup,
     checkUpdates: handleCheckUpdates,
-  }));
+  }))
 
   return (
     <div className="px-6 flex flex-col flex-1 min-h-0 overflow-hidden">
       <div className="flex items-center justify-between">
         <AppCountBar
-          totalLabel={t("skills.installed", { count: skills?.length || 0 })}
+          totalLabel={t('skills.installed', { count: skills?.length || 0 })}
           counts={enabledCounts}
           appIds={SKILLS_APP_IDS}
         />
@@ -358,7 +359,7 @@ const UnifiedSkillsPanel = React.forwardRef<
             className="transition-all duration-300 ease-out overflow-hidden"
             style={{
               maxWidth:
-                skillUpdates && skillUpdates.length > 0 ? "200px" : "0px",
+                skillUpdates && skillUpdates.length > 0 ? '200px' : '0px',
               opacity: skillUpdates && skillUpdates.length > 0 ? 1 : 0,
             }}
           >
@@ -376,8 +377,8 @@ const UnifiedSkillsPanel = React.forwardRef<
                 <RefreshCw size={12} />
               )}
               {isUpdatingAll
-                ? t("skills.updatingAll")
-                : t("skills.updateAll", { count: skillUpdates?.length ?? 0 })}
+                ? t('skills.updatingAll')
+                : t('skills.updateAll', { count: skillUpdates?.length ?? 0 })}
             </Button>
           </div>
           <Button
@@ -394,8 +395,8 @@ const UnifiedSkillsPanel = React.forwardRef<
               <RefreshCw size={12} />
             )}
             {isCheckingUpdates
-              ? t("skills.checkingUpdates")
-              : t("skills.checkUpdates")}
+              ? t('skills.checkingUpdates')
+              : t('skills.checkUpdates')}
           </Button>
         </div>
       </div>
@@ -403,7 +404,7 @@ const UnifiedSkillsPanel = React.forwardRef<
       <div className="flex-1 overflow-y-auto overflow-x-hidden pb-24">
         {isLoading ? (
           <div className="text-center py-12 text-muted-foreground">
-            {t("skills.loading")}
+            {t('skills.loading')}
           </div>
         ) : !skills || skills.length === 0 ? (
           <div className="text-center py-12">
@@ -411,10 +412,10 @@ const UnifiedSkillsPanel = React.forwardRef<
               <Sparkles size={24} className="text-muted-foreground" />
             </div>
             <h3 className="text-lg font-medium text-foreground mb-2">
-              {t("skills.noInstalled")}
+              {t('skills.noInstalled')}
             </h3>
             <p className="text-muted-foreground text-sm">
-              {t("skills.noInstalledDescription")}
+              {t('skills.noInstalledDescription')}
             </p>
           </div>
         ) : (
@@ -473,19 +474,19 @@ const UnifiedSkillsPanel = React.forwardRef<
         open={restoreDialogOpen}
       />
     </div>
-  );
-});
+  )
+})
 
-UnifiedSkillsPanel.displayName = "UnifiedSkillsPanel";
+UnifiedSkillsPanel.displayName = 'UnifiedSkillsPanel'
 
 interface InstalledSkillListItemProps {
-  skill: InstalledSkill;
-  hasUpdate?: boolean;
-  isUpdating?: boolean;
-  onToggleApp: (id: string, app: AppId, enabled: boolean) => void;
-  onUninstall: () => void;
-  onUpdate?: () => void;
-  isLast?: boolean;
+  skill: InstalledSkill
+  hasUpdate?: boolean
+  isUpdating?: boolean
+  onToggleApp: (id: string, app: AppId, enabled: boolean) => void
+  onUninstall: () => void
+  onUpdate?: () => void
+  isLast?: boolean
 }
 
 const InstalledSkillListItem: React.FC<InstalledSkillListItemProps> = ({
@@ -497,23 +498,23 @@ const InstalledSkillListItem: React.FC<InstalledSkillListItemProps> = ({
   onUpdate,
   isLast,
 }) => {
-  const { t } = useTranslation();
+  const { t } = useTranslation()
 
   const openDocs = async () => {
-    if (!skill.readmeUrl) return;
+    if (!skill.readmeUrl) return
     try {
-      await settingsApi.openExternal(skill.readmeUrl);
+      await settingsApi.openExternal(skill.readmeUrl)
     } catch {
       // ignore
     }
-  };
+  }
 
   const sourceLabel = useMemo(() => {
     if (skill.repoOwner && skill.repoName) {
-      return `${skill.repoOwner}/${skill.repoName}`;
+      return `${skill.repoOwner}/${skill.repoName}`
     }
-    return t("skills.local");
-  }, [skill.repoOwner, skill.repoName, t]);
+    return t('skills.local')
+  }, [skill.repoOwner, skill.repoName, t])
 
   return (
     <ListItemRow isLast={isLast}>
@@ -539,7 +540,7 @@ const InstalledSkillListItem: React.FC<InstalledSkillListItemProps> = ({
               variant="outline"
               className="shrink-0 text-[10px] px-1.5 py-0 h-4 border-amber-500 text-amber-600 dark:text-amber-400"
             >
-              {t("skills.updateAvailable")}
+              {t('skills.updateAvailable')}
             </Badge>
           )}
         </div>
@@ -571,7 +572,7 @@ const InstalledSkillListItem: React.FC<InstalledSkillListItemProps> = ({
             className="h-7 w-7 hover:text-blue-500 hover:bg-blue-100 dark:hover:text-blue-400 dark:hover:bg-blue-500/10"
             onClick={onUpdate}
             disabled={isUpdating}
-            title={t("skills.update")}
+            title={t('skills.update')}
           >
             {isUpdating ? (
               <Loader2 size={14} className="animate-spin" />
@@ -586,37 +587,37 @@ const InstalledSkillListItem: React.FC<InstalledSkillListItemProps> = ({
           size="icon"
           className="h-7 w-7 hover:text-red-500 hover:bg-red-100 dark:hover:text-red-400 dark:hover:bg-red-500/10"
           onClick={onUninstall}
-          title={t("skills.uninstall")}
+          title={t('skills.uninstall')}
         >
           <Trash2 size={14} />
         </Button>
       </div>
     </ListItemRow>
-  );
-};
+  )
+}
 
 interface ImportSkillsDialogProps {
   skills: Array<{
-    directory: string;
-    name: string;
-    description?: string;
-    foundIn: string[];
-    path: string;
-  }>;
-  isImporting: boolean;
-  onImport: (imports: ImportSkillSelection[]) => void;
-  onClose: () => void;
+    directory: string
+    name: string
+    description?: string
+    foundIn: string[]
+    path: string
+  }>
+  isImporting: boolean
+  onImport: (imports: ImportSkillSelection[]) => void
+  onClose: () => void
 }
 
 interface RestoreSkillsDialogProps {
-  backups: SkillBackupEntry[];
-  isDeleting: boolean;
-  isLoading: boolean;
-  isRestoring: boolean;
-  onDelete: (backup: SkillBackupEntry) => void;
-  onRestore: (backupId: string) => void;
-  onClose: () => void;
-  open: boolean;
+  backups: SkillBackupEntry[]
+  isDeleting: boolean
+  isLoading: boolean
+  isRestoring: boolean
+  onDelete: (backup: SkillBackupEntry) => void
+  onRestore: (backupId: string) => void
+  onClose: () => void
+  open: boolean
 }
 
 const RestoreSkillsDialog: React.FC<RestoreSkillsDialogProps> = ({
@@ -629,7 +630,7 @@ const RestoreSkillsDialog: React.FC<RestoreSkillsDialogProps> = ({
   onClose,
   open,
 }) => {
-  const { t } = useTranslation();
+  const { t } = useTranslation()
 
   return (
     <Dialog open={open} onOpenChange={(nextOpen) => !nextOpen && onClose()}>
@@ -638,20 +639,20 @@ const RestoreSkillsDialog: React.FC<RestoreSkillsDialogProps> = ({
         zIndex="alert"
       >
         <DialogHeader>
-          <DialogTitle>{t("skills.restoreFromBackup.title")}</DialogTitle>
+          <DialogTitle>{t('skills.restoreFromBackup.title')}</DialogTitle>
           <DialogDescription>
-            {t("skills.restoreFromBackup.description")}
+            {t('skills.restoreFromBackup.description')}
           </DialogDescription>
         </DialogHeader>
 
         <div className="flex-1 overflow-y-auto px-6 py-4">
           {isLoading ? (
             <div className="py-10 text-center text-sm text-muted-foreground">
-              {t("common.loading")}
+              {t('common.loading')}
             </div>
           ) : backups.length === 0 ? (
             <div className="py-10 text-center text-sm text-muted-foreground">
-              {t("skills.restoreFromBackup.empty")}
+              {t('skills.restoreFromBackup.empty')}
             </div>
           ) : (
             <div className="space-y-3">
@@ -677,11 +678,11 @@ const RestoreSkillsDialog: React.FC<RestoreSkillsDialogProps> = ({
                       )}
                       <div className="mt-3 space-y-1.5 text-xs text-muted-foreground">
                         <div>
-                          {t("skills.restoreFromBackup.createdAt")}:{" "}
+                          {t('skills.restoreFromBackup.createdAt')}:{' '}
                           {formatSkillBackupDate(backup.createdAt)}
                         </div>
                         <div className="break-all" title={backup.backupPath}>
-                          {t("skills.restoreFromBackup.path")}:{" "}
+                          {t('skills.restoreFromBackup.path')}:{' '}
                           {backup.backupPath}
                         </div>
                       </div>
@@ -695,8 +696,8 @@ const RestoreSkillsDialog: React.FC<RestoreSkillsDialogProps> = ({
                         disabled={isRestoring || isDeleting}
                       >
                         {isRestoring
-                          ? t("skills.restoreFromBackup.restoring")
-                          : t("skills.restoreFromBackup.restore")}
+                          ? t('skills.restoreFromBackup.restoring')
+                          : t('skills.restoreFromBackup.restore')}
                       </Button>
                       <Button
                         type="button"
@@ -705,8 +706,8 @@ const RestoreSkillsDialog: React.FC<RestoreSkillsDialogProps> = ({
                         disabled={isRestoring || isDeleting}
                       >
                         {isDeleting
-                          ? t("skills.restoreFromBackup.deleting")
-                          : t("skills.restoreFromBackup.delete")}
+                          ? t('skills.restoreFromBackup.deleting')
+                          : t('skills.restoreFromBackup.delete')}
                       </Button>
                     </div>
                   </div>
@@ -718,13 +719,13 @@ const RestoreSkillsDialog: React.FC<RestoreSkillsDialogProps> = ({
 
         <DialogFooter>
           <Button type="button" variant="outline" onClick={onClose}>
-            {t("common.close")}
+            {t('common.close')}
           </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
-  );
-};
+  )
+}
 
 const ImportSkillsDialog: React.FC<ImportSkillsDialogProps> = ({
   skills,
@@ -732,37 +733,38 @@ const ImportSkillsDialog: React.FC<ImportSkillsDialogProps> = ({
   onImport,
   onClose,
 }) => {
-  const { t } = useTranslation();
+  const { t } = useTranslation()
   const [selected, setSelected] = useState<Set<string>>(
-    new Set(skills.map((s) => s.directory)),
-  );
+    new Set(skills.map((s) => s.directory))
+  )
   const [selectedApps, setSelectedApps] = useState<
-    Record<string, ImportSkillSelection["apps"]>
+    Record<string, ImportSkillSelection['apps']>
   >(() =>
     Object.fromEntries(
       skills.map((skill) => [
         skill.directory,
         {
-          claude: skill.foundIn.includes("claude"),
-          codex: skill.foundIn.includes("codex"),
-          gemini: skill.foundIn.includes("gemini"),
-          opencode: skill.foundIn.includes("opencode"),
+          claude: skill.foundIn.includes('claude'),
+          codex: skill.foundIn.includes('codex'),
+          gemini: skill.foundIn.includes('gemini'),
+          opencode: skill.foundIn.includes('opencode'),
           openclaw: false,
-          hermes: skill.foundIn.includes("hermes"),
+          hermes: skill.foundIn.includes('hermes'),
+          'pi': skill.foundIn.includes('pi'),
         },
-      ]),
-    ),
-  );
+      ])
+    )
+  )
 
   const toggleSelect = (directory: string) => {
-    const newSelected = new Set(selected);
+    const newSelected = new Set(selected)
     if (newSelected.has(directory)) {
-      newSelected.delete(directory);
+      newSelected.delete(directory)
     } else {
-      newSelected.add(directory);
+      newSelected.add(directory)
     }
-    setSelected(newSelected);
-  };
+    setSelected(newSelected)
+  }
 
   const handleImport = () => {
     onImport(
@@ -776,17 +778,17 @@ const ImportSkillsDialog: React.FC<ImportSkillsDialogProps> = ({
           openclaw: false,
           hermes: false,
         },
-      })),
-    );
-  };
+      }))
+    )
+  }
 
   return (
     <TooltipProvider delayDuration={300}>
       <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
         <div className="bg-background rounded-xl p-6 max-w-lg w-full mx-4 shadow-xl max-h-[80vh] flex flex-col">
-          <h2 className="text-lg font-semibold mb-2">{t("skills.import")}</h2>
+          <h2 className="text-lg font-semibold mb-2">{t('skills.import')}</h2>
           <p className="text-sm text-muted-foreground mb-4">
-            {t("skills.importDescription")}
+            {t('skills.importDescription')}
           </p>
 
           <div className="flex-1 overflow-y-auto space-y-2 mb-4">
@@ -834,7 +836,7 @@ const ImportSkillsDialog: React.FC<ImportSkillsDialogProps> = ({
                             }),
                             [app]: enabled,
                           },
-                        }));
+                        }))
                       }}
                       appIds={SKILLS_APP_IDS}
                     />
@@ -852,19 +854,19 @@ const ImportSkillsDialog: React.FC<ImportSkillsDialogProps> = ({
 
           <div className="flex justify-end gap-3">
             <Button variant="outline" onClick={onClose} disabled={isImporting}>
-              {t("common.cancel")}
+              {t('common.cancel')}
             </Button>
             <Button
               onClick={handleImport}
               disabled={selected.size === 0 || isImporting}
             >
-              {t("skills.importSelected", { count: selected.size })}
+              {t('skills.importSelected', { count: selected.size })}
             </Button>
           </div>
         </div>
       </div>
     </TooltipProvider>
-  );
-};
+  )
+}
 
-export default UnifiedSkillsPanel;
+export default UnifiedSkillsPanel

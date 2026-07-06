@@ -853,6 +853,29 @@ pub fn get_opencode_live_provider_ids() -> Result<Vec<String>, String> {
         .map_err(|e| e.to_string())
 }
 
+#[tauri::command]
+pub fn import_pi_providers_from_live(state: State<'_, AppState>) -> Result<usize, String> {
+    crate::services::provider::import_pi_providers_from_live(state.inner())
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn get_pi_live_provider_ids() -> Result<Vec<String>, String> {
+    crate::pi_config::get_live_provider_ids().map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn get_pi_live_provider(
+    #[allow(non_snake_case)] providerId: String,
+) -> Result<Option<serde_json::Value>, String> {
+    crate::pi_config::get_provider(&providerId).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn get_pi_default_provider() -> Result<Option<String>, String> {
+    crate::pi_config::get_default_provider().map_err(|e| e.to_string())
+}
+
 // ============================================================================
 // OpenClaw 专属命令 → 已迁移至 commands/openclaw.rs
 // ============================================================================
