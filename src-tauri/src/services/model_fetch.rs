@@ -57,6 +57,7 @@ pub async fn fetch_models(
     is_full_url: bool,
     models_url_override: Option<&str>,
     user_agent: Option<HeaderValue>,
+    auth_header: Option<bool>,
 ) -> Result<Vec<FetchedModel>, String> {
     if api_key.is_empty() {
         return Err("API Key is required to fetch models".to_string());
@@ -65,61 +66,93 @@ pub async fn fetch_models(
     let candidates = build_models_url_candidates(base_url, is_full_url, models_url_override)?;
     let client = crate::proxy::http_client::get();
     let mut last_err: Option<String> = None;
+    let auth_modes = auth_modes_for_fetch(auth_header);
 
     for url in &candidates {
         log::debug!("[ModelFetch] Trying endpoint: {url}");
-        let mut request = client
-            .get(url)
-            .header("Authorization", format!("Bearer {api_key}"))
-            .timeout(Duration::from_secs(FETCH_TIMEOUT_SECS));
-        // 自定义 User-Agent：部分 /models 端点同样有 UA 白名单（如 Kimi Coding Plan），
-        // 与转发 / 检测路径共用同一 UA，避免"代理可用但取模型失败"。
-        if let Some(ua) = &user_agent {
-            request = request.header(USER_AGENT, ua.clone());
-        }
-        let response = match request.send().await {
-            Ok(r) => r,
-            Err(e) => {
-                return Err(format!("Request failed: {e}"));
+        for (auth_mode_index, auth_mode) in auth_modes.iter().enumerate() {
+            let mut request = client
+                .get(url)
+                .timeout(Duration::from_secs(FETCH_TIMEOUT_SECS));
+
+            request = match auth_mode {
+                ModelFetchAuthMode::Bearer => {
+                    request.header("Authorization", format!("Bearer {api_key}"))
+                }
+                ModelFetchAuthMode::ApiKey => request
+                    .header("x-api-key", api_key)
+                    .header("anthropic-version", "2023-06-01"),
+            };
+
+            // 自定义 User-Agent：部分 /models 端点同样有 UA 白名单（如 Kimi Coding Plan），
+            // 与转发 / 检测路径共用同一 UA，避免"代理可用但取模型失败"。
+            if let Some(ua) = &user_agent {
+                request = request.header(USER_AGENT, ua.clone());
             }
-        };
 
-        let status = response.status();
+            let response = match request.send().await {
+                Ok(r) => r,
+                Err(e) => {
+                    return Err(format!("Request failed: {e}"));
+                }
+            };
 
-        if status.is_success() {
-            let resp: ModelsResponse = response
-                .json()
-                .await
-                .map_err(|e| format!("Failed to parse response: {e}"))?;
+            let status = response.status();
 
-            let mut models: Vec<FetchedModel> = resp
-                .data
-                .unwrap_or_default()
-                .into_iter()
-                .map(|m| FetchedModel {
-                    id: m.id,
-                    owned_by: m.owned_by,
-                })
-                .collect();
+            if status.is_success() {
+                let resp: ModelsResponse = response
+                    .json()
+                    .await
+                    .map_err(|e| format!("Failed to parse response: {e}"))?;
 
-            models.sort_by(|a, b| a.id.cmp(&b.id));
-            return Ok(models);
-        }
+                let mut models: Vec<FetchedModel> = resp
+                    .data
+                    .unwrap_or_default()
+                    .into_iter()
+                    .map(|m| FetchedModel {
+                        id: m.id,
+                        owned_by: m.owned_by,
+                    })
+                    .collect();
 
-        if status == StatusCode::NOT_FOUND || status == StatusCode::METHOD_NOT_ALLOWED {
+                models.sort_by(|a, b| a.id.cmp(&b.id));
+                return Ok(models);
+            }
+
             let body = truncate_body(response.text().await.unwrap_or_default());
             last_err = Some(format!("HTTP {status}: {body}"));
-            continue;
-        }
 
-        let body = truncate_body(response.text().await.unwrap_or_default());
-        return Err(format!("HTTP {status}: {body}"));
+            if status == StatusCode::NOT_FOUND || status == StatusCode::METHOD_NOT_ALLOWED {
+                break;
+            }
+
+            if (status == StatusCode::UNAUTHORIZED || status == StatusCode::FORBIDDEN)
+                && auth_mode_index + 1 < auth_modes.len()
+            {
+                continue;
+            }
+
+            return Err(last_err.expect("last_err set from response"));
+        }
     }
 
     Err(format!(
         "All candidates failed: {}",
         last_err.unwrap_or_else(|| "no candidates".to_string())
     ))
+}
+
+#[derive(Debug, Clone, Copy)]
+enum ModelFetchAuthMode {
+    Bearer,
+    ApiKey,
+}
+
+fn auth_modes_for_fetch(auth_header: Option<bool>) -> Vec<ModelFetchAuthMode> {
+    match auth_header {
+        Some(false) => vec![ModelFetchAuthMode::ApiKey],
+        _ => vec![ModelFetchAuthMode::Bearer],
+    }
 }
 
 /// 构造「模型列表端点」的候选 URL 列表
@@ -320,6 +353,22 @@ mod tests {
         )
         .unwrap();
         assert_eq!(c, vec!["https://api.deepseek.com/models"]);
+    }
+
+    #[test]
+    fn test_auth_modes_default_to_bearer_only() {
+        let modes = auth_modes_for_fetch(None);
+
+        assert!(matches!(modes[0], ModelFetchAuthMode::Bearer));
+        assert_eq!(modes.len(), 1);
+    }
+
+    #[test]
+    fn test_auth_modes_can_use_api_key_header_only() {
+        let modes = auth_modes_for_fetch(Some(false));
+
+        assert_eq!(modes.len(), 1);
+        assert!(matches!(modes[0], ModelFetchAuthMode::ApiKey));
     }
 
     #[test]

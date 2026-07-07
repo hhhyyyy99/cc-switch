@@ -200,7 +200,7 @@ impl StreamCheckService {
                 let npm = Self::extract_opencode_npm(provider);
                 Self::resolve_opencode_base_url(provider, npm.as_deref())
             }
-            AppType::OpenClaw => Self::extract_openclaw_base_url(provider),
+            AppType::OpenClaw | AppType::Pi => Self::extract_openclaw_base_url(provider),
             AppType::Hermes => Self::extract_hermes_base_url(provider),
             AppType::ClaudeDesktop => ClaudeAdapter::new()
                 .extract_base_url(provider)
@@ -561,6 +561,23 @@ mod tests {
         assert_eq!(
             StreamCheckService::extract_openclaw_base_url(&p2).unwrap(),
             "https://api.deepseek.com/v1"
+        );
+    }
+
+    #[test]
+    fn test_resolve_base_url_for_pi_uses_base_url_field() {
+        let p = make_provider(serde_json::json!({
+            "baseUrl": "https://open.bigmodel.cn/api/coding/paas/v4",
+            "apiKey": "k",
+            "api": "openai-completions",
+            "modelOverrides": {
+                "glm-5.1": {}
+            }
+        }));
+
+        assert_eq!(
+            StreamCheckService::resolve_base_url(&AppType::Pi, &p).unwrap(),
+            "https://open.bigmodel.cn/api/coding/paas/v4"
         );
     }
 
