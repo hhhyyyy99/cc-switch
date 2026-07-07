@@ -125,4 +125,55 @@ describe("AddProviderDialog", () => {
       },
     });
   });
+
+  it("为 Pi 供应商传递 providerKey 并从 baseUrl 生成自定义端点", async () => {
+    const handleSubmit = vi.fn().mockResolvedValue(undefined);
+
+    mockFormValues = {
+      name: "Pi Provider",
+      websiteUrl: "",
+      providerKey: "pi-provider",
+      settingsConfig: JSON.stringify({
+        baseUrl: "https://pi.example.com/v1/",
+        apiKey: "$PI_API_KEY",
+        api: "anthropic-messages",
+        authHeader: true,
+        models: [],
+      }),
+    };
+
+    render(
+      <AddProviderDialog
+        open
+        onOpenChange={vi.fn()}
+        appId="pi"
+        onSubmit={handleSubmit}
+      />,
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "common.add",
+      }),
+    );
+
+    await waitFor(() => expect(handleSubmit).toHaveBeenCalledTimes(1));
+
+    const submitted = handleSubmit.mock.calls[0][0];
+    expect(submitted.providerKey).toBe("pi-provider");
+    expect(submitted.settingsConfig).toEqual({
+      baseUrl: "https://pi.example.com/v1/",
+      apiKey: "$PI_API_KEY",
+      api: "anthropic-messages",
+      authHeader: true,
+      models: [],
+    });
+    expect(submitted.meta?.custom_endpoints).toEqual({
+      "https://pi.example.com/v1": {
+        url: "https://pi.example.com/v1",
+        addedAt: expect.any(Number),
+        lastUsed: undefined,
+      },
+    });
+  });
 });

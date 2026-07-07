@@ -72,6 +72,8 @@ export function useOpenclawFormState({
   const providersAppId = appId === "pi" ? "pi" : "openclaw";
   const defaultConfig =
     appId === "pi" ? PI_DEFAULT_CONFIG : OPENCLAW_DEFAULT_CONFIG;
+  const defaultApi =
+    appId === "pi" ? "anthropic-messages" : "openai-completions";
   // Query existing providers for duplicate key checking
   const { data: openclawProvidersData } = useProvidersQuery(providersAppId);
   const existingOpenclawKeys = useMemo(() => {
@@ -101,7 +103,7 @@ export function useOpenclawFormState({
     return parseOpenclawField(
       initialData,
       "api",
-      appId === "pi" ? "anthropic-messages" : "openai-completions",
+      defaultApi,
       defaultConfig,
     );
   });
@@ -209,18 +211,21 @@ export function useOpenclawFormState({
     [updateOpenclawConfig],
   );
 
-  const resetOpenclawState = useCallback((config?: OpenClawProviderConfig) => {
-    setOpenclawProviderKey("");
-    setOpenclawBaseUrl(config?.baseUrl || "");
-    setOpenclawApiKey(config?.apiKey || "");
-    setOpenclawApi(config?.api || "openai-completions");
-    setOpenclawModels(config?.models || []);
-    const ua = config?.headers ? "User-Agent" in config.headers : false;
-    setOpenclawUserAgent(ua);
-    setOpenclawAuthHeader(
-      (config as { authHeader?: boolean } | undefined)?.authHeader ?? true,
-    );
-  }, []);
+  const resetOpenclawState = useCallback(
+    (config?: OpenClawProviderConfig) => {
+      setOpenclawProviderKey("");
+      setOpenclawBaseUrl(config?.baseUrl || "");
+      setOpenclawApiKey(config?.apiKey || "");
+      setOpenclawApi(config?.api || defaultApi);
+      setOpenclawModels(config?.models || []);
+      const ua = config?.headers ? "User-Agent" in config.headers : false;
+      setOpenclawUserAgent(ua);
+      setOpenclawAuthHeader(
+        (config as { authHeader?: boolean } | undefined)?.authHeader ?? true,
+      );
+    },
+    [defaultApi],
+  );
 
   return {
     openclawProviderKey,
