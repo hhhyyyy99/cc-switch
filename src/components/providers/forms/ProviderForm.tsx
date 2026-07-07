@@ -113,6 +113,7 @@ import {
   GEMINI_DEFAULT_CONFIG,
   OPENCODE_DEFAULT_CONFIG,
   OPENCLAW_DEFAULT_CONFIG,
+  PI_DEFAULT_CONFIG,
   normalizePricingSource,
 } from "./helpers/opencodeFormUtils";
 import { HERMES_DEFAULT_CONFIG } from "./hooks/useHermesFormState";
@@ -356,6 +357,8 @@ function ProviderFormFull({
   const isOmoCategory = appId === "opencode" && category === "omo";
   const isOmoSlimCategory = appId === "opencode" && category === "omo-slim";
   const isAnyOmoCategory = isOmoCategory || isOmoSlimCategory;
+  const isPi = appId === "pi";
+  const isOpenClawLikeProvider = appId === "openclaw" || isPi;
 
   useEffect(() => {
     setSelectedPresetId(initialData ? null : "custom");
@@ -407,13 +410,15 @@ function ProviderFormFull({
               ? OPENCODE_DEFAULT_CONFIG
               : appId === "openclaw"
                 ? OPENCLAW_DEFAULT_CONFIG
-                : appId === "hermes"
-                  ? HERMES_DEFAULT_CONFIG
-                  : CLAUDE_DEFAULT_CONFIG,
+                : isPi
+                  ? PI_DEFAULT_CONFIG
+                  : appId === "hermes"
+                    ? HERMES_DEFAULT_CONFIG
+                    : CLAUDE_DEFAULT_CONFIG,
       icon: initialData?.icon ?? "",
       iconColor: initialData?.iconColor ?? "",
     }),
-    [initialData, appId],
+    [initialData, appId, isPi],
   );
 
   const form = useForm<ProviderFormData>({
@@ -674,6 +679,11 @@ function ProviderFormFull({
         id: `openclaw-${index}`,
         preset,
       }));
+    } else if (isPi) {
+      return openclawProviderPresets.map<PresetEntry>((preset, index) => ({
+        id: `pi-${index}`,
+        preset,
+      }));
     } else if (appId === "hermes") {
       return hermesProviderPresets.map<PresetEntry>((preset, index) => ({
         id: `hermes-${index}`,
@@ -686,7 +696,7 @@ function ProviderFormFull({
         id: `claude-${index}`,
         preset,
       }));
-  }, [appId]);
+  }, [appId, isPi]);
 
   const {
     templateValues,
@@ -873,6 +883,14 @@ function ProviderFormFull({
     data: openclawLiveProviderIds = [],
     isLoading: isOpenclawLiveProviderIdsLoading,
   } = useOpenClawLiveProviderIds(appId === "openclaw");
+  const {
+    data: piLiveProviderIds = [],
+    isLoading: isPiLiveProviderIdsLoading,
+  } = useQuery({
+    queryKey: ["piLiveProviderIds"],
+    queryFn: () => providersApi.getPiLiveProviderIds(),
+    enabled: isPi,
+  });
 
   const hermesForm = useHermesFormState({
     initialData,
@@ -897,12 +915,12 @@ function ProviderFormFull({
       );
     }
 
-    if (appId === "openclaw") {
+    if (isOpenClawLikeProvider) {
       return Array.from(
         new Set(
           [
             ...openclawForm.existingOpenclawKeys,
-            ...openclawLiveProviderIds,
+            ...(isPi ? piLiveProviderIds : openclawLiveProviderIds),
           ].filter((key) => key !== providerId),
         ),
       );
@@ -925,9 +943,12 @@ function ProviderFormFull({
     hermesForm.existingHermesKeys,
     hermesLiveProviderIds,
     isAnyOmoCategory,
+    isOpenClawLikeProvider,
+    isPi,
     openclawForm.existingOpenclawKeys,
     openclawLiveProviderIds,
     opencodeLiveProviderIds,
+    piLiveProviderIds,
     providerId,
   ]);
 
@@ -936,8 +957,10 @@ function ProviderFormFull({
     if (appId === "opencode" && !isAnyOmoCategory) {
       return isOpencodeLiveProviderIdsLoading;
     }
-    if (appId === "openclaw") {
-      return isOpenclawLiveProviderIdsLoading;
+    if (isOpenClawLikeProvider) {
+      return isPi
+        ? isPiLiveProviderIdsLoading
+        : isOpenclawLiveProviderIdsLoading;
     }
     if (appId === "hermes") {
       return isHermesLiveProviderIdsLoading;
@@ -948,7 +971,10 @@ function ProviderFormFull({
     isAnyOmoCategory,
     isEditMode,
     isHermesLiveProviderIdsLoading,
+    isOpenClawLikeProvider,
     isOpenclawLiveProviderIdsLoading,
+    isPi,
+    isPiLiveProviderIdsLoading,
     isOpencodeLiveProviderIdsLoading,
   ]);
 
@@ -957,8 +983,10 @@ function ProviderFormFull({
     if (appId === "opencode" && !isAnyOmoCategory) {
       return opencodeLiveProviderIds.includes(providerId);
     }
-    if (appId === "openclaw") {
-      return openclawLiveProviderIds.includes(providerId);
+    if (isOpenClawLikeProvider) {
+      return isPi
+        ? piLiveProviderIds.includes(providerId)
+        : openclawLiveProviderIds.includes(providerId);
     }
     if (appId === "hermes") {
       return hermesLiveProviderIds.includes(providerId);
@@ -969,8 +997,11 @@ function ProviderFormFull({
     hermesLiveProviderIds,
     isAnyOmoCategory,
     isEditMode,
+    isOpenClawLikeProvider,
+    isPi,
     openclawLiveProviderIds,
     opencodeLiveProviderIds,
+    piLiveProviderIds,
     providerId,
   ]);
 
@@ -1035,12 +1066,12 @@ function ProviderFormFull({
       return;
     }
 
-    // opencode / openclaw / hermes: providerKey 相关
+    // opencode / openclaw / pi / hermes: providerKey 相关
     // A 类（空）归到 issues；B 类（正则不合法 / 重复 / 状态加载中）仍硬拒绝
     const keyPattern = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 
     if (appId === "opencode" && !isAnyOmoCategory) {
-      // providerKey 是 opencode / openclaw / hermes 的主键 ID，空或格式不合法
+      // providerKey 是 opencode / openclaw / pi / hermes 的主键 ID，空或格式不合法
       // 都属于完整性约束，保留硬拒绝（mutations 层也会 throw，软化只会让错误更晦涩）
       if (!opencodeForm.opencodeProviderKey.trim()) {
         toast.error(t("opencode.providerKeyRequired"));
@@ -1070,13 +1101,13 @@ function ProviderFormFull({
       }
     }
 
-    if (appId === "openclaw") {
+    if (isOpenClawLikeProvider) {
       if (!openclawForm.openclawProviderKey.trim()) {
-        toast.error(t("openclaw.providerKeyRequired"));
+        toast.error(t(`${appId}.providerKeyRequired`));
         return;
       }
       if (!keyPattern.test(openclawForm.openclawProviderKey)) {
-        toast.error(t("openclaw.providerKeyInvalid"));
+        toast.error(t(`${appId}.providerKeyInvalid`));
         return;
       }
       if (isProviderKeyLockStateLoading) {
@@ -1091,7 +1122,7 @@ function ProviderFormFull({
         !isProviderKeyLocked &&
         additiveExistingProviderKeys.includes(openclawForm.openclawProviderKey)
       ) {
-        toast.error(t("openclaw.providerKeyDuplicate"));
+        toast.error(t(`${appId}.providerKeyDuplicate`));
         return;
       }
     }
@@ -1357,7 +1388,7 @@ function ProviderFormFull({
       } else {
         payload.providerKey = opencodeForm.opencodeProviderKey;
       }
-    } else if (appId === "openclaw") {
+    } else if (isOpenClawLikeProvider) {
       payload.providerKey = openclawForm.openclawProviderKey;
     } else if (appId === "hermes") {
       payload.providerKey = hermesForm.hermesProviderKey;
@@ -1376,9 +1407,9 @@ function ProviderFormFull({
         payload.isPartner = activePreset.isPartner;
       }
       // OpenClaw: align preset model refs with the actual submitted provider key.
-      if (activePreset.suggestedDefaults) {
+      if (activePreset.suggestedDefaults && appId === "openclaw") {
         payload.suggestedDefaults =
-          appId === "openclaw" && payload.providerKey
+          payload.providerKey
             ? rebaseOpenClawSuggestedDefaults(
                 activePreset.suggestedDefaults,
                 payload.providerKey,
@@ -1586,6 +1617,20 @@ function ProviderFormFull({
     formWebsiteUrl: form.watch("websiteUrl") || "",
   });
 
+  // 使用 API Key 链接 hook (Pi)
+  const {
+    shouldShowApiKeyLink: shouldShowPiApiKeyLink,
+    websiteUrl: piWebsiteUrl,
+    isPartner: isPiPartner,
+    partnerPromotionKey: piPartnerPromotionKey,
+  } = useApiKeyLink({
+    appId: "pi",
+    category,
+    selectedPresetId,
+    presetEntries,
+    formWebsiteUrl: form.watch("websiteUrl") || "",
+  });
+
   // 使用 API Key 链接 hook (Hermes)
   const {
     shouldShowApiKeyLink: shouldShowHermesApiKeyLink,
@@ -1632,8 +1677,8 @@ function ProviderFormFull({
         opencodeForm.resetOpencodeState();
         omoDraft.resetOmoDraftState();
       }
-      // OpenClaw 自定义模式：重置为空配置
-      if (appId === "openclaw") {
+      // OpenClaw / Pi 自定义模式：重置为空配置
+      if (isOpenClawLikeProvider) {
         openclawForm.resetOpenclawState();
       }
       if (appId === "hermes") {
@@ -1722,8 +1767,8 @@ function ProviderFormFull({
       return;
     }
 
-    // OpenClaw preset handling
-    if (appId === "openclaw") {
+    // OpenClaw / Pi preset handling
+    if (isOpenClawLikeProvider) {
       const preset = entry.preset as OpenClawProviderPreset;
       const config = preset.settingsConfig;
 
@@ -1733,7 +1778,8 @@ function ProviderFormFull({
         category: preset.category,
         isPartner: preset.isPartner,
         partnerPromotionKey: preset.partnerPromotionKey,
-        suggestedDefaults: preset.suggestedDefaults,
+        suggestedDefaults:
+          appId === "openclaw" ? preset.suggestedDefaults : undefined,
       });
 
       openclawForm.resetOpenclawState(config);
@@ -1891,21 +1937,21 @@ function ProviderFormFull({
                       </p>
                     )}
                 </div>
-              ) : appId === "openclaw" ? (
+              ) : isOpenClawLikeProvider ? (
                 <div className="space-y-2">
-                  <Label htmlFor="openclaw-key">
-                    {t("openclaw.providerKey")}
+                  <Label htmlFor={`${appId}-key`}>
+                    {t(`${appId}.providerKey`)}
                     <span className="text-destructive ml-1">*</span>
                   </Label>
                   <Input
-                    id="openclaw-key"
+                    id={`${appId}-key`}
                     value={openclawForm.openclawProviderKey}
                     onChange={(e) =>
                       openclawForm.setOpenclawProviderKey(
                         e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""),
                       )
                     }
-                    placeholder={t("openclaw.providerKeyPlaceholder")}
+                    placeholder={t(`${appId}.providerKeyPlaceholder`)}
                     disabled={
                       isProviderKeyLocked || isProviderKeyLockStateLoading
                     }
@@ -1927,7 +1973,7 @@ function ProviderFormFull({
                   ) &&
                     !isProviderKeyLocked && (
                       <p className="text-xs text-destructive">
-                        {t("openclaw.providerKeyDuplicate")}
+                        {t(`${appId}.providerKeyDuplicate`)}
                       </p>
                     )}
                   {openclawForm.openclawProviderKey.trim() !== "" &&
@@ -1935,7 +1981,7 @@ function ProviderFormFull({
                       openclawForm.openclawProviderKey,
                     ) && (
                       <p className="text-xs text-destructive">
-                        {t("openclaw.providerKeyInvalid")}
+                        {t(`${appId}.providerKeyInvalid`)}
                       </p>
                     )}
                   {!(
@@ -1949,11 +1995,11 @@ function ProviderFormFull({
                       )) && (
                       <p className="text-xs text-muted-foreground">
                         {isProviderKeyLocked
-                          ? t("openclaw.providerKeyLockedHint", {
+                          ? t(`${appId}.providerKeyLockedHint`, {
                               defaultValue:
                                 "该供应商已添加到应用配置中，供应商标识不可修改",
                             })
-                          : t("openclaw.providerKeyHint")}
+                          : t(`${appId}.providerKeyHint`)}
                       </p>
                     )}
                 </div>
@@ -2225,24 +2271,34 @@ function ProviderFormFull({
               />
             )}
 
-          {/* OpenClaw 专属字段 */}
-          {appId === "openclaw" && (
+          {/* OpenClaw / Pi 专属字段 */}
+          {isOpenClawLikeProvider && (
             <OpenClawFormFields
               baseUrl={openclawForm.openclawBaseUrl}
               onBaseUrlChange={openclawForm.handleOpenclawBaseUrlChange}
               apiKey={openclawForm.openclawApiKey}
               onApiKeyChange={openclawForm.handleOpenclawApiKeyChange}
               category={category}
-              shouldShowApiKeyLink={shouldShowOpenclawApiKeyLink}
-              websiteUrl={openclawWebsiteUrl}
-              isPartner={isOpenclawPartner}
-              partnerPromotionKey={openclawPartnerPromotionKey}
+              shouldShowApiKeyLink={
+                isPi ? shouldShowPiApiKeyLink : shouldShowOpenclawApiKeyLink
+              }
+              websiteUrl={isPi ? piWebsiteUrl : openclawWebsiteUrl}
+              isPartner={isPi ? isPiPartner : isOpenclawPartner}
+              partnerPromotionKey={
+                isPi ? piPartnerPromotionKey : openclawPartnerPromotionKey
+              }
               api={openclawForm.openclawApi}
               onApiChange={openclawForm.handleOpenclawApiChange}
               models={openclawForm.openclawModels}
               onModelsChange={openclawForm.handleOpenclawModelsChange}
               userAgent={openclawForm.openclawUserAgent}
               onUserAgentChange={openclawForm.handleOpenclawUserAgentChange}
+              authHeader={openclawForm.openclawAuthHeader}
+              onAuthHeaderChange={openclawForm.handleOpenclawAuthHeaderChange}
+              i18nNamespace={isPi ? "pi" : "openclaw"}
+              fieldIdPrefix={isPi ? "pi" : "openclaw"}
+              showUserAgent={!isPi}
+              showAuthHeader={isPi}
             />
           )}
 
@@ -2357,7 +2413,7 @@ function ProviderFormFull({
               </div>
               {settingsConfigErrorField}
             </>
-          ) : appId === "openclaw" || appId === "hermes" ? (
+          ) : appId === "openclaw" || appId === "hermes" || isPi ? (
             <>
               <div className="space-y-2">
                 <Label htmlFor="settingsConfig">
@@ -2372,6 +2428,14 @@ function ProviderFormFull({
   "name": "my-provider",
   "base_url": "https://api.example.com/v1",
   "api_key": ""
+}`
+                      : isPi
+                        ? `{
+  "baseUrl": "https://api.example.com/v1",
+  "apiKey": "your-api-key-here",
+  "api": "anthropic-messages",
+  "authHeader": true,
+  "models": []
 }`
                       : `{
   "baseUrl": "https://api.example.com/v1",
@@ -2419,7 +2483,8 @@ function ProviderFormFull({
           {!isAnyOmoCategory &&
             appId !== "opencode" &&
             appId !== "openclaw" &&
-            appId !== "hermes" && (
+            appId !== "hermes" &&
+            !isPi && (
               <ProviderAdvancedConfig
                 testConfig={testConfig}
                 pricingConfig={pricingConfig}

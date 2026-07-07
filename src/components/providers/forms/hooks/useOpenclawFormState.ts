@@ -2,7 +2,10 @@ import { useState, useCallback, useMemo } from "react";
 import type { OpenClawModel, OpenClawProviderConfig } from "@/types";
 import type { AppId } from "@/lib/api";
 import { useProvidersQuery } from "@/lib/query/queries";
-import { OPENCLAW_DEFAULT_CONFIG } from "../helpers/opencodeFormUtils";
+import {
+  OPENCLAW_DEFAULT_CONFIG,
+  PI_DEFAULT_CONFIG,
+} from "../helpers/opencodeFormUtils";
 
 interface UseOpenclawFormStateParams {
   initialData?: {
@@ -25,12 +28,14 @@ export interface OpenclawFormState {
   openclawApi: string;
   openclawModels: OpenClawModel[];
   openclawUserAgent: boolean;
+  openclawAuthHeader: boolean;
   existingOpenclawKeys: string[];
   handleOpenclawBaseUrlChange: (baseUrl: string) => void;
   handleOpenclawApiKeyChange: (apiKey: string) => void;
   handleOpenclawApiChange: (api: string) => void;
   handleOpenclawModelsChange: (models: OpenClawModel[]) => void;
   handleOpenclawUserAgentChange: (enabled: boolean) => void;
+  handleOpenclawAuthHeaderChange: (enabled: boolean) => void;
   resetOpenclawState: (config?: OpenClawProviderConfig) => void;
 }
 
@@ -38,14 +43,19 @@ function parseOpenclawField<T>(
   initialData: UseOpenclawFormStateParams["initialData"],
   field: string,
   fallback: T,
+  defaultConfig = OPENCLAW_DEFAULT_CONFIG,
 ): T {
   try {
     const config = JSON.parse(
       initialData?.settingsConfig
         ? JSON.stringify(initialData.settingsConfig)
-        : OPENCLAW_DEFAULT_CONFIG,
+        : defaultConfig,
     );
-    return (config[field] as T) || fallback;
+    const value = config[field];
+    if (typeof value === "boolean") {
+      return value as T;
+    }
+    return (value as T) || fallback;
   } catch {
     return fallback;
   }
@@ -58,8 +68,12 @@ export function useOpenclawFormState({
   onSettingsConfigChange,
   getSettingsConfig,
 }: UseOpenclawFormStateParams): OpenclawFormState {
+  const isOpenclawLikeApp = appId === "openclaw" || appId === "pi";
+  const providersAppId = appId === "pi" ? "pi" : "openclaw";
+  const defaultConfig =
+    appId === "pi" ? PI_DEFAULT_CONFIG : OPENCLAW_DEFAULT_CONFIG;
   // Query existing providers for duplicate key checking
-  const { data: openclawProvidersData } = useProvidersQuery("openclaw");
+  const { data: openclawProvidersData } = useProvidersQuery(providersAppId);
   const existingOpenclawKeys = useMemo(() => {
     if (!openclawProvidersData?.providers) return [];
     return Object.keys(openclawProvidersData.providers).filter(
@@ -68,53 +82,67 @@ export function useOpenclawFormState({
   }, [openclawProvidersData?.providers, providerId]);
 
   const [openclawProviderKey, setOpenclawProviderKey] = useState<string>(() => {
-    if (appId !== "openclaw") return "";
+    if (!isOpenclawLikeApp) return "";
     return providerId || "";
   });
 
   const [openclawBaseUrl, setOpenclawBaseUrl] = useState<string>(() => {
-    if (appId !== "openclaw") return "";
-    return parseOpenclawField(initialData, "baseUrl", "");
+    if (!isOpenclawLikeApp) return "";
+    return parseOpenclawField(initialData, "baseUrl", "", defaultConfig);
   });
 
   const [openclawApiKey, setOpenclawApiKey] = useState<string>(() => {
-    if (appId !== "openclaw") return "";
-    return parseOpenclawField(initialData, "apiKey", "");
+    if (!isOpenclawLikeApp) return "";
+    return parseOpenclawField(initialData, "apiKey", "", defaultConfig);
   });
 
   const [openclawApi, setOpenclawApi] = useState<string>(() => {
-    if (appId !== "openclaw") return "openai-completions";
-    return parseOpenclawField(initialData, "api", "openai-completions");
+    if (!isOpenclawLikeApp) return "openai-completions";
+    return parseOpenclawField(
+      initialData,
+      "api",
+      appId === "pi" ? "anthropic-messages" : "openai-completions",
+      defaultConfig,
+    );
   });
 
   const [openclawModels, setOpenclawModels] = useState<OpenClawModel[]>(() => {
-    if (appId !== "openclaw") return [];
-    return parseOpenclawField<OpenClawModel[]>(initialData, "models", []);
+    if (!isOpenclawLikeApp) return [];
+    return parseOpenclawField<OpenClawModel[]>(
+      initialData,
+      "models",
+      [],
+      defaultConfig,
+    );
   });
 
   const [openclawUserAgent, setOpenclawUserAgent] = useState<boolean>(() => {
-    if (appId !== "openclaw") return true;
+    if (!isOpenclawLikeApp) return true;
     const headers = parseOpenclawField<Record<string, string>>(
       initialData,
       "headers",
       {},
+      defaultConfig,
     );
     return "User-Agent" in headers;
+  });
+
+  const [openclawAuthHeader, setOpenclawAuthHeader] = useState<boolean>(() => {
+    if (!isOpenclawLikeApp) return true;
+    return parseOpenclawField(initialData, "authHeader", true, defaultConfig);
   });
 
   const updateOpenclawConfig = useCallback(
     (updater: (config: Record<string, any>) => void) => {
       try {
-        const config = JSON.parse(
-          getSettingsConfig() || OPENCLAW_DEFAULT_CONFIG,
-        );
+        const config = JSON.parse(getSettingsConfig() || defaultConfig);
         updater(config);
         onSettingsConfigChange(JSON.stringify(config, null, 2));
       } catch {
         // ignore
       }
     },
-    [getSettingsConfig, onSettingsConfigChange],
+    [defaultConfig, getSettingsConfig, onSettingsConfigChange],
   );
 
   const handleOpenclawBaseUrlChange = useCallback(
@@ -171,6 +199,16 @@ export function useOpenclawFormState({
     [updateOpenclawConfig],
   );
 
+  const handleOpenclawAuthHeaderChange = useCallback(
+    (enabled: boolean) => {
+      setOpenclawAuthHeader(enabled);
+      updateOpenclawConfig((config) => {
+        config.authHeader = enabled;
+      });
+    },
+    [updateOpenclawConfig],
+  );
+
   const resetOpenclawState = useCallback((config?: OpenClawProviderConfig) => {
     setOpenclawProviderKey("");
     setOpenclawBaseUrl(config?.baseUrl || "");
@@ -179,6 +217,9 @@ export function useOpenclawFormState({
     setOpenclawModels(config?.models || []);
     const ua = config?.headers ? "User-Agent" in config.headers : false;
     setOpenclawUserAgent(ua);
+    setOpenclawAuthHeader(
+      (config as { authHeader?: boolean } | undefined)?.authHeader ?? true,
+    );
   }, []);
 
   return {
@@ -189,12 +230,14 @@ export function useOpenclawFormState({
     openclawApi,
     openclawModels,
     openclawUserAgent,
+    openclawAuthHeader,
     existingOpenclawKeys,
     handleOpenclawBaseUrlChange,
     handleOpenclawApiKeyChange,
     handleOpenclawApiChange,
     handleOpenclawModelsChange,
     handleOpenclawUserAgentChange,
+    handleOpenclawAuthHeaderChange,
     resetOpenclawState,
   };
 }

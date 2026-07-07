@@ -111,6 +111,19 @@ export function ProviderList({
   // Hermes: 查询 live 配置中的供应商 ID 列表，用于判断 isInConfig
   const { data: hermesLiveIds } = useHermesLiveProviderIds(appId === "hermes");
 
+  // Pi: 查询 live 配置中的供应商 ID 列表，用于判断 isInConfig
+  const { data: piLiveIds } = useQuery({
+    queryKey: ["piLiveProviderIds"],
+    queryFn: () => providersApi.getPiLiveProviderIds(),
+    enabled: appId === "pi",
+  });
+
+  const { data: piDefaultProvider } = useQuery({
+    queryKey: ["piDefaultProvider"],
+    queryFn: () => providersApi.getPiDefaultProvider(),
+    enabled: appId === "pi",
+  });
+
   // Hermes: 读取当前 model.provider，用于判断哪个供应商是"当前激活"（高亮）
   const { data: hermesModelConfig } = useHermesModelConfig(appId === "hermes");
   const hermesCurrentProviderId = hermesModelConfig?.provider;
@@ -127,9 +140,12 @@ export function ProviderList({
       if (appId === "hermes") {
         return hermesLiveIds?.includes(providerId) ?? false;
       }
+      if (appId === "pi") {
+        return piLiveIds?.includes(providerId) ?? false;
+      }
       return true; // 其他应用始终返回 true
     },
-    [appId, opencodeLiveIds, openclawLiveIds, hermesLiveIds],
+    [appId, opencodeLiveIds, openclawLiveIds, hermesLiveIds, piLiveIds],
   );
 
   // OpenClaw: query default model to determine which provider is default
@@ -139,10 +155,13 @@ export function ProviderList({
 
   const isProviderDefaultModel = useCallback(
     (providerId: string): boolean => {
+      if (appId === "pi") {
+        return piDefaultProvider === providerId;
+      }
       if (appId !== "openclaw" || !openclawDefaultModel?.primary) return false;
       return openclawDefaultModel.primary.startsWith(providerId + "/");
     },
-    [appId, openclawDefaultModel],
+    [appId, openclawDefaultModel, piDefaultProvider],
   );
 
   // 故障转移相关
@@ -222,6 +241,10 @@ export function ProviderList({
         const count = await providersApi.importHermesFromLive();
         return count > 0;
       }
+      if (appId === "pi") {
+        const count = await providersApi.importPiFromLive();
+        return count > 0;
+      }
       if (appId === "claude-desktop") {
         const count = await providersApi.importClaudeDesktopFromClaude();
         return count > 0;
@@ -231,6 +254,10 @@ export function ProviderList({
     onSuccess: (imported) => {
       if (imported) {
         queryClient.invalidateQueries({ queryKey: ["providers", appId] });
+        if (appId === "pi") {
+          queryClient.invalidateQueries({ queryKey: ["piLiveProviderIds"] });
+          queryClient.invalidateQueries({ queryKey: ["piDefaultProvider"] });
+        }
         if (appId === "claude-desktop") {
           queryClient.invalidateQueries({ queryKey: ["claudeDesktopStatus"] });
         }
@@ -425,7 +452,7 @@ export function ProviderList({
                   handleToggleFailover(provider.id, enabled)
                 }
                 activeProviderId={activeProviderId}
-                // OpenClaw: default model / Hermes: model.provider === provider.id
+                // OpenClaw/Pi: default provider model / Hermes: model.provider === provider.id
                 isDefaultModel={
                   appId === "hermes"
                     ? isHermesCurrent

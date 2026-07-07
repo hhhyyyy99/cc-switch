@@ -113,6 +113,7 @@ export function useSettings(): UseSettingsResult {
       opencode: sanitizeDir(data?.opencodeConfigDir),
       openclaw: sanitizeDir(data?.openclawConfigDir),
       hermes: sanitizeDir(data?.hermesConfigDir),
+      pi: sanitizeDir(data?.piConfigDir),
     });
     setRequiresRestart(false);
   }, [
@@ -193,6 +194,7 @@ export function useSettings(): UseSettingsResult {
         const sanitizedOpenclawDir = sanitizeDir(
           mergedSettings.openclawConfigDir,
         );
+        const sanitizedPiDir = sanitizeDir(mergedSettings.piConfigDir);
         const {
           webdavSync: _ignoredWebdavSync,
           s3Sync: _ignoredS3Sync,
@@ -206,6 +208,7 @@ export function useSettings(): UseSettingsResult {
           geminiConfigDir: sanitizedGeminiDir,
           opencodeConfigDir: sanitizedOpencodeDir,
           openclawConfigDir: sanitizedOpenclawDir,
+          piConfigDir: sanitizedPiDir,
           language: mergedSettings.language,
         };
 
@@ -324,12 +327,14 @@ export function useSettings(): UseSettingsResult {
         const sanitizedOpenclawDir = sanitizeDir(
           mergedSettings.openclawConfigDir,
         );
+        const sanitizedPiDir = sanitizeDir(mergedSettings.piConfigDir);
         const previousAppDir = initialAppConfigDir;
         const previousClaudeDir = sanitizeDir(data?.claudeConfigDir);
         const previousCodexDir = sanitizeDir(data?.codexConfigDir);
         const previousGeminiDir = sanitizeDir(data?.geminiConfigDir);
         const previousOpencodeDir = sanitizeDir(data?.opencodeConfigDir);
         const previousOpenclawDir = sanitizeDir(data?.openclawConfigDir);
+        const previousPiDir = sanitizeDir(data?.piConfigDir);
         const {
           webdavSync: _ignoredWebdavSync,
           s3Sync: _ignoredS3Sync,
@@ -343,6 +348,7 @@ export function useSettings(): UseSettingsResult {
           geminiConfigDir: sanitizedGeminiDir,
           opencodeConfigDir: sanitizedOpencodeDir,
           openclawConfigDir: sanitizedOpenclawDir,
+          piConfigDir: sanitizedPiDir,
           language: mergedSettings.language,
         };
 
@@ -429,13 +435,15 @@ export function useSettings(): UseSettingsResult {
         const geminiDirChanged = sanitizedGeminiDir !== previousGeminiDir;
         const opencodeDirChanged = sanitizedOpencodeDir !== previousOpencodeDir;
         const openclawDirChanged = sanitizedOpenclawDir !== previousOpenclawDir;
+        const piDirChanged = sanitizedPiDir !== previousPiDir;
         if (
           !pluginSynced &&
           (claudeDirChanged ||
             codexDirChanged ||
             geminiDirChanged ||
             opencodeDirChanged ||
-            openclawDirChanged)
+            openclawDirChanged ||
+            piDirChanged)
         ) {
           const syncResult = await syncCurrentProvidersLiveSafe();
           if (!syncResult.ok) {

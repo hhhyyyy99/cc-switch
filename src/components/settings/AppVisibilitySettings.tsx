@@ -27,6 +27,7 @@ const APP_CONFIG: Array<{
   { id: "opencode", icon: "opencode", nameKey: "apps.opencode" },
   { id: "openclaw", icon: "openclaw", nameKey: "apps.openclaw" },
   { id: "hermes", icon: "hermes", nameKey: "apps.hermes" },
+  { id: "pi", icon: "pi", nameKey: "apps.pi" },
 ];
 
 export function AppVisibilitySettings({
@@ -35,7 +36,7 @@ export function AppVisibilitySettings({
 }: AppVisibilitySettingsProps) {
   const { t } = useTranslation();
 
-  const visibleApps: VisibleApps = settings.visibleApps ?? {
+  const visibleApps: VisibleApps = {
     claude: true,
     "claude-desktop": true,
     codex: true,
@@ -43,6 +44,8 @@ export function AppVisibilitySettings({
     opencode: true,
     openclaw: true,
     hermes: true,
+    pi: true,
+    ...(settings.visibleApps ?? {}),
   };
 
   // Count how many apps are currently visible

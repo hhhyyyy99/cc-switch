@@ -129,6 +129,7 @@ const VALID_APPS: AppId[] = [
   "opencode",
   "openclaw",
   "hermes",
+  "pi",
 ];
 
 const getInitialApp = (): AppId => {
@@ -188,7 +189,7 @@ function App() {
     isLinux() && (settingsData?.useAppWindowControls ?? false);
   const dragBarHeight = useAppWindowControls ? 32 : DEFAULT_DRAG_BAR_HEIGHT;
   const contentTopOffset = dragBarHeight + HEADER_HEIGHT;
-  const visibleApps: VisibleApps = settingsData?.visibleApps ?? {
+  const visibleApps: VisibleApps = {
     claude: true,
     "claude-desktop": true,
     codex: true,
@@ -196,6 +197,8 @@ function App() {
     opencode: true,
     openclaw: true,
     hermes: true,
+    pi: true,
+    ...(settingsData?.visibleApps ?? {}),
   };
 
   const getFirstVisibleApp = (): AppId => {
@@ -206,6 +209,7 @@ function App() {
     if (visibleApps.opencode) return "opencode";
     if (visibleApps.openclaw) return "openclaw";
     if (visibleApps.hermes) return "hermes";
+    if (visibleApps.pi) return "pi";
     return "claude"; // fallback
   };
 
@@ -224,7 +228,8 @@ function App() {
       sharedFeatureApp !== "opencode" &&
       sharedFeatureApp !== "openclaw" &&
       sharedFeatureApp !== "gemini" &&
-      sharedFeatureApp !== "hermes"
+      sharedFeatureApp !== "hermes" &&
+      sharedFeatureApp !== "pi"
     ) {
       setCurrentView("providers");
     }
@@ -293,7 +298,8 @@ function App() {
     sharedFeatureApp === "opencode" ||
     sharedFeatureApp === "openclaw" ||
     sharedFeatureApp === "gemini" ||
-    sharedFeatureApp === "hermes";
+    sharedFeatureApp === "hermes" ||
+    sharedFeatureApp === "pi";
 
   const {
     addProvider,
@@ -658,6 +664,13 @@ function App() {
         await queryClient.invalidateQueries({
           queryKey: hermesKeys.liveProviderIds,
         });
+      } else if (activeApp === "pi") {
+        await queryClient.invalidateQueries({
+          queryKey: ["piLiveProviderIds"],
+        });
+        await queryClient.invalidateQueries({
+          queryKey: ["piDefaultProvider"],
+        });
       }
       toast.success(
         t("notifications.removeFromConfigSuccess", {
@@ -709,7 +722,8 @@ function App() {
     if (
       activeApp === "opencode" ||
       activeApp === "openclaw" ||
-      activeApp === "hermes"
+      activeApp === "hermes" ||
+      activeApp === "pi"
     ) {
       let liveProviderIds: string[] = [];
       try {
@@ -724,9 +738,14 @@ function App() {
                   queryKey: openclawKeys.liveProviderIds,
                   queryFn: () => providersApi.getOpenClawLiveProviderIds(),
                 })
-              : await queryClient.ensureQueryData({
+            : activeApp === "hermes"
+              ? await queryClient.ensureQueryData({
                   queryKey: hermesKeys.liveProviderIds,
                   queryFn: () => providersApi.getHermesLiveProviderIds(),
+                })
+              : await queryClient.ensureQueryData({
+                  queryKey: ["piLiveProviderIds"],
+                  queryFn: () => providersApi.getPiLiveProviderIds(),
                 });
       } catch (error) {
         console.error(
@@ -981,7 +1000,8 @@ function App() {
                       onRemoveFromConfig={
                         activeApp === "opencode" ||
                         activeApp === "openclaw" ||
-                        activeApp === "hermes"
+                        activeApp === "hermes" ||
+                        activeApp === "pi"
                           ? (provider) =>
                               setConfirmAction({ provider, action: "remove" })
                           : undefined
@@ -1006,7 +1026,9 @@ function App() {
                           ? setAsDefaultModel
                           : activeApp === "hermes"
                             ? switchProvider
-                            : undefined
+                            : activeApp === "pi"
+                              ? switchProvider
+                              : undefined
                       }
                     />
                   </motion.div>
@@ -1231,7 +1253,8 @@ function App() {
             {currentView === "providers" &&
               activeApp !== "opencode" &&
               activeApp !== "openclaw" &&
-              activeApp !== "hermes" && (
+              activeApp !== "hermes" &&
+              activeApp !== "pi" && (
                 <div
                   className="flex shrink-0 items-center gap-1.5"
                   style={{ WebkitAppRegion: "no-drag" } as any}

@@ -112,6 +112,13 @@ const extractApiUrl = (provider: Provider, fallbackText: string) => {
   const config = provider.settingsConfig;
 
   if (config && typeof config === "object") {
+    const directBaseUrl =
+      (config as Record<string, any>)?.baseUrl ||
+      (config as Record<string, any>)?.base_url;
+    if (typeof directBaseUrl === "string" && directBaseUrl.trim()) {
+      return directBaseUrl;
+    }
+
     const envBase =
       (config as Record<string, any>)?.env?.ANTHROPIC_BASE_URL ||
       (config as Record<string, any>)?.env?.GOOGLE_GEMINI_BASE_URL;
@@ -168,7 +175,8 @@ export function ProviderCard({
   // OMO and OMO Slim share the same card behavior
   const isAnyOmo = isOmo || isOmoSlim;
   const handleDisableAnyOmo = isOmoSlim ? onDisableOmoSlim : onDisableOmo;
-  const isAdditiveMode = appId === "opencode" && !isAnyOmo;
+  const isAdditiveMode =
+    (appId === "opencode" && !isAnyOmo) || appId === "pi";
 
   const { data: health } = useProviderHealth(provider.id, appId);
 
@@ -233,9 +241,12 @@ export function ProviderCard({
     (provider.settingsConfig as Record<string, any>)?.config,
   ]);
   // 获取用量数据以判断是否有多套餐
-  // 累加模式应用（OpenCode/OpenClaw/Hermes）：使用 isInConfig 代替 isCurrent
+  // 累加模式应用（OpenCode/OpenClaw/Pi/Hermes）：使用 isInConfig 代替 isCurrent
   const shouldAutoQuery =
-    appId === "opencode" || appId === "openclaw" || appId === "hermes"
+    appId === "opencode" ||
+    appId === "openclaw" ||
+    appId === "pi" ||
+    appId === "hermes"
       ? isInConfig
       : isCurrent;
   const autoQueryInterval = shouldAutoQuery
@@ -269,13 +280,13 @@ export function ProviderCard({
 
   // 判断是否是"当前使用中"的供应商
   // - OMO/OMO Slim 供应商：使用 isCurrent
-  // - OpenClaw：使用默认模型归属的 provider 作为当前项（蓝色边框）
+  // - OpenClaw/Pi：使用默认模型归属的 provider 作为当前项（蓝色边框）
   // - OpenCode（非 OMO）：不存在"当前"概念，返回 false
   // - 故障转移模式：代理实际使用的供应商（activeProviderId）
   // - 普通模式：isCurrent
   const isActiveProvider = isAnyOmo
     ? isCurrent
-    : appId === "openclaw"
+    : appId === "openclaw" || appId === "pi"
       ? Boolean(isDefaultModel)
       : appId === "opencode"
         ? false

@@ -84,10 +84,11 @@ export function ProviderActions({
   const { t } = useTranslation();
   const iconButtonClass = "h-8 w-8 p-1";
 
-  // 累加模式应用（OpenCode 非 OMO / OpenClaw / Hermes）
+  // 累加模式应用（OpenCode 非 OMO / OpenClaw / Pi / Hermes）
   const isAdditiveMode =
     (appId === "opencode" && !isOmo) ||
     appId === "openclaw" ||
+    appId === "pi" ||
     appId === "hermes";
 
   // 故障转移模式下的按钮逻辑（累加模式和 OMO 应用不支持故障转移）
@@ -140,7 +141,7 @@ export function ProviderActions({
       };
     }
 
-    // 累加模式（OpenCode 非 OMO / OpenClaw）
+    // 累加模式（OpenCode 非 OMO / OpenClaw / Pi / Hermes）
     if (isAdditiveMode) {
       if (isInConfig) {
         return {
@@ -228,7 +229,7 @@ export function ProviderActions({
 
   return (
     <div className="flex items-center gap-1.5">
-      {(appId === "openclaw" || appId === "hermes") &&
+      {(appId === "openclaw" || appId === "pi" || appId === "hermes") &&
         isInConfig &&
         onSetAsDefault &&
         (() => {

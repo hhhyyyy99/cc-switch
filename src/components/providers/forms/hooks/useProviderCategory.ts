@@ -46,7 +46,7 @@ export function useProviderCategory({
 
     // 从预设 ID 提取索引
     const match = selectedPresetId.match(
-      /^(claude|codex|gemini|opencode|openclaw|hermes)-(\d+)$/,
+      /^(claude|codex|gemini|opencode|openclaw|pi|hermes)-(\d+)$/,
     );
     if (!match) return;
 
@@ -78,6 +78,11 @@ export function useProviderCategory({
         setCategory(preset.category || undefined);
       }
     } else if (type === "openclaw" && appId === "openclaw") {
+      const preset = openclawProviderPresets[index];
+      if (preset) {
+        setCategory(preset.category || undefined);
+      }
+    } else if (type === "pi" && appId === "pi") {
       const preset = openclawProviderPresets[index];
       if (preset) {
         setCategory(preset.category || undefined);

@@ -281,6 +281,7 @@ export interface VisibleApps {
   opencode: boolean;
   openclaw: boolean;
   hermes: boolean;
+  pi: boolean;
 }
 
 // WebDAV 同步状态
@@ -397,6 +398,8 @@ export interface Settings {
   openclawConfigDir?: string;
   // 覆盖 Hermes 配置目录（可选）
   hermesConfigDir?: string;
+  // 覆盖 Pi Agent 配置目录（可选，默认为 ~/.pi/agent）
+  piConfigDir?: string;
 
   // ===== 当前供应商 ID（设备级）=====
   // 当前 Claude 供应商 ID（优先于数据库 is_current）
@@ -407,6 +410,8 @@ export interface Settings {
   currentProviderCodex?: string;
   // 当前 Gemini 供应商 ID（优先于数据库 is_current）
   currentProviderGemini?: string;
+  // 当前 Pi Agent 供应商 ID（本地默认）
+  currentProviderPi?: string;
 
   // ===== Skill 同步设置 =====
   // Skill 同步方式：auto（默认，优先 symlink）、symlink、copy
@@ -488,6 +493,7 @@ export interface McpApps {
   opencode: boolean;
   openclaw: boolean;
   hermes: boolean;
+  pi?: boolean;
 }
 
 // MCP 服务器条目（v3.7.0 统一结构）
@@ -683,6 +689,14 @@ export interface OpenClawProviderConfig {
   models?: OpenClawModel[]; // 可用模型列表
   headers?: Record<string, string>; // 自定义请求头（如 User-Agent）
   authHeader?: boolean; // 供应商自定义认证开关（如 Longcat）
+}
+
+// Pi Agent 的 models.json providers.<id> 结构与 OpenClaw 的字段基本一致，
+// 内置供应商通常通过 modelOverrides 做轻量覆盖，并从 auth.json / 环境变量取密钥。
+export interface PiProviderConfig extends OpenClawProviderConfig {
+  name?: string;
+  modelOverrides?: Record<string, Record<string, unknown>>;
+  compat?: Record<string, unknown>;
 }
 
 // OpenClaw agents.defaults 完整配置
