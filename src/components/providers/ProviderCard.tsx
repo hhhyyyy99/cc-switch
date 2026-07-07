@@ -175,8 +175,7 @@ export function ProviderCard({
   // OMO and OMO Slim share the same card behavior
   const isAnyOmo = isOmo || isOmoSlim;
   const handleDisableAnyOmo = isOmoSlim ? onDisableOmoSlim : onDisableOmo;
-  const isAdditiveMode =
-    (appId === "opencode" && !isAnyOmo) || appId === "pi";
+  const usesConfigMembershipHighlight = appId === "opencode" && !isAnyOmo;
 
   const { data: health } = useProviderHealth(provider.id, appId);
 
@@ -281,7 +280,7 @@ export function ProviderCard({
   // 判断是否是"当前使用中"的供应商
   // - OMO/OMO Slim 供应商：使用 isCurrent
   // - OpenClaw/Pi：使用默认模型归属的 provider 作为当前项（蓝色边框）
-  // - OpenCode（非 OMO）：不存在"当前"概念，返回 false
+  // - OpenCode（非 OMO）：不存在"当前"概念，使用 live 配置成员身份高亮
   // - 故障转移模式：代理实际使用的供应商（activeProviderId）
   // - 普通模式：isCurrent
   const isActiveProvider = isAnyOmo
@@ -295,7 +294,8 @@ export function ProviderCard({
           : isCurrent;
 
   const shouldUseGreen = !isAnyOmo && isProxyTakeover && isActiveProvider;
-  const hasPersistentConfigHighlight = isAdditiveMode && isInConfig;
+  const hasPersistentConfigHighlight =
+    usesConfigMembershipHighlight && isInConfig;
   const shouldUseBlue =
     (isAnyOmo && isActiveProvider) ||
     (!isAnyOmo &&
