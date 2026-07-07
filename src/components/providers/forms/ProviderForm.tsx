@@ -1408,13 +1408,12 @@ function ProviderFormFull({
       }
       // OpenClaw: align preset model refs with the actual submitted provider key.
       if (activePreset.suggestedDefaults && appId === "openclaw") {
-        payload.suggestedDefaults =
-          payload.providerKey
-            ? rebaseOpenClawSuggestedDefaults(
-                activePreset.suggestedDefaults,
-                payload.providerKey,
-              )
-            : activePreset.suggestedDefaults;
+        payload.suggestedDefaults = payload.providerKey
+          ? rebaseOpenClawSuggestedDefaults(
+              activePreset.suggestedDefaults,
+              payload.providerKey,
+            )
+          : activePreset.suggestedDefaults;
       }
     }
 
@@ -2437,7 +2436,7 @@ function ProviderFormFull({
   "authHeader": true,
   "models": []
 }`
-                      : `{
+                        : `{
   "baseUrl": "https://api.example.com/v1",
   "apiKey": "your-api-key-here",
   "api": "openai-completions",

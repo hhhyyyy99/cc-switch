@@ -100,12 +100,7 @@ export function useOpenclawFormState({
 
   const [openclawApi, setOpenclawApi] = useState<string>(() => {
     if (!isOpenclawLikeApp) return "openai-completions";
-    return parseOpenclawField(
-      initialData,
-      "api",
-      defaultApi,
-      defaultConfig,
-    );
+    return parseOpenclawField(initialData, "api", defaultApi, defaultConfig);
   });
 
   const [openclawModels, setOpenclawModels] = useState<OpenClawModel[]>(() => {

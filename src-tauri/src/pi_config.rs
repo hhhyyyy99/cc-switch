@@ -616,6 +616,8 @@ pub fn apply_switch_defaults(provider_id: &str, settings_config: &Value) -> Resu
         );
         if let Some(model_id) = model_id {
             obj.insert("defaultModel".to_string(), Value::String(model_id));
+        } else {
+            obj.remove("defaultModel");
         }
     }
 
@@ -731,5 +733,44 @@ mod tests {
         }
 
         result.expect("remove provider should clear all Pi live provider sources");
+    }
+
+    #[test]
+    #[serial]
+    fn apply_switch_defaults_clears_stale_model_when_target_has_no_model() {
+        let temp_home = tempfile::tempdir().expect("create temp home");
+        let old_test_home = std::env::var_os("CC_SWITCH_TEST_HOME");
+        std::env::set_var("CC_SWITCH_TEST_HOME", temp_home.path());
+
+        let result = (|| -> Result<(), AppError> {
+            write_pi_settings_config(&json!({
+                "defaultProvider": "old-provider",
+                "defaultModel": "old-model",
+                "defaultThinkingLevel": "high"
+            }))?;
+
+            apply_switch_defaults(
+                "new-provider",
+                &json!({
+                    "baseUrl": "https://api.example.com/v1",
+                    "apiKey": "$NEW_API_KEY",
+                    "api": "anthropic-messages"
+                }),
+            )?;
+
+            let settings = read_pi_settings_config()?;
+            assert_eq!(settings["defaultProvider"], "new-provider");
+            assert!(settings.get("defaultModel").is_none());
+            assert_eq!(settings["defaultThinkingLevel"], "high");
+
+            Ok(())
+        })();
+
+        match old_test_home {
+            Some(value) => std::env::set_var("CC_SWITCH_TEST_HOME", value),
+            None => std::env::remove_var("CC_SWITCH_TEST_HOME"),
+        }
+
+        result.expect("switching to provider without models should clear stale default model");
     }
 }

@@ -474,12 +474,9 @@ export function OpenClawFormFields({
                       onChange={(e) =>
                         handleModelChange(index, "name", e.target.value)
                       }
-                      placeholder={t(
-                        `${i18nNamespace}.modelNamePlaceholder`,
-                        {
-                          defaultValue: "Claude 3 Sonnet",
-                        },
-                      )}
+                      placeholder={t(`${i18nNamespace}.modelNamePlaceholder`, {
+                        defaultValue: "Claude 3 Sonnet",
+                      })}
                     />
                   </div>
                   <Button

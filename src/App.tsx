@@ -738,15 +738,15 @@ function App() {
                   queryKey: openclawKeys.liveProviderIds,
                   queryFn: () => providersApi.getOpenClawLiveProviderIds(),
                 })
-            : activeApp === "hermes"
-              ? await queryClient.ensureQueryData({
-                  queryKey: hermesKeys.liveProviderIds,
-                  queryFn: () => providersApi.getHermesLiveProviderIds(),
-                })
-              : await queryClient.ensureQueryData({
-                  queryKey: ["piLiveProviderIds"],
-                  queryFn: () => providersApi.getPiLiveProviderIds(),
-                });
+              : activeApp === "hermes"
+                ? await queryClient.ensureQueryData({
+                    queryKey: hermesKeys.liveProviderIds,
+                    queryFn: () => providersApi.getHermesLiveProviderIds(),
+                  })
+                : await queryClient.ensureQueryData({
+                    queryKey: ["piLiveProviderIds"],
+                    queryFn: () => providersApi.getPiLiveProviderIds(),
+                  });
       } catch (error) {
         console.error(
           "[App] Failed to load live provider IDs for duplication",

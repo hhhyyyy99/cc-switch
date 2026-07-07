@@ -50,7 +50,6 @@ impl Database {
                             opencode: enabled_opencode,
                             hermes: enabled_hermes,
                             pi: enabled_pi,
-                            ..Default::default()
                         },
                         description,
                         homepage,

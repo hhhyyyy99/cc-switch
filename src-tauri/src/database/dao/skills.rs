@@ -46,7 +46,6 @@ impl Database {
                         opencode: row.get(11)?,
                         hermes: row.get(12)?,
                         pi: row.get(13)?,
-                        ..Default::default()
                     },
                     installed_at: row.get(14)?,
                     content_hash: row.get(15)?,
@@ -92,7 +91,6 @@ impl Database {
                     opencode: row.get(11)?,
                     hermes: row.get(12)?,
                     pi: row.get(13)?,
-                    ..Default::default()
                 },
                 installed_at: row.get(14)?,
                 content_hash: row.get(15)?,

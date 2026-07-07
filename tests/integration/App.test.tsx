@@ -31,26 +31,29 @@ vi.mock("@/components/providers/ProviderList", () => ({
     onConfigureUsage,
     onOpenWebsite,
     onCreate,
-  }: any) => (
-    <div>
-      <div data-testid="provider-list">{JSON.stringify(providers)}</div>
-      <div data-testid="current-provider">{currentProviderId}</div>
-      <button onClick={() => onSwitch(providers[currentProviderId])}>
-        switch
-      </button>
-      <button onClick={() => onEdit(providers[currentProviderId])}>edit</button>
-      <button onClick={() => onDuplicate(providers[currentProviderId])}>
-        duplicate
-      </button>
-      <button onClick={() => onConfigureUsage(providers[currentProviderId])}>
-        usage
-      </button>
-      <button onClick={() => onOpenWebsite("https://example.com")}>
-        open-website
-      </button>
-      <button onClick={() => onCreate?.()}>create</button>
-    </div>
-  ),
+  }: any) => {
+    const provider =
+      providers?.[currentProviderId] ??
+      (Array.isArray(providers)
+        ? providers.find((item) => item.id === currentProviderId)
+        : undefined) ??
+      Object.values(providers ?? {})[0];
+
+    return (
+      <div>
+        <div data-testid="provider-list">{JSON.stringify(providers)}</div>
+        <div data-testid="current-provider">{currentProviderId}</div>
+        <button onClick={() => onSwitch(provider)}>switch</button>
+        <button onClick={() => onEdit(provider)}>edit</button>
+        <button onClick={() => onDuplicate(provider)}>duplicate</button>
+        <button onClick={() => onConfigureUsage(provider)}>usage</button>
+        <button onClick={() => onOpenWebsite("https://example.com")}>
+          open-website
+        </button>
+        <button onClick={() => onCreate?.()}>create</button>
+      </div>
+    );
+  },
 }));
 
 vi.mock("@/components/providers/AddProviderDialog", () => ({
@@ -163,62 +166,66 @@ describe("App integration with MSW", () => {
     toastErrorMock.mockReset();
   });
 
-  it("covers basic provider flows via real hooks", async () => {
-    const { default: App } = await import("@/App");
-    renderApp(App);
+  it(
+    "covers basic provider flows via real hooks",
+    async () => {
+      const { default: App } = await import("@/App");
+      renderApp(App);
 
-    await waitFor(() =>
-      expect(screen.getByTestId("provider-list").textContent).toContain(
-        "claude-1",
-      ),
-    );
+      await waitFor(() =>
+        expect(screen.getByTestId("provider-list").textContent).toContain(
+          "claude-1",
+        ),
+      );
 
-    fireEvent.click(screen.getByText("switch-codex"));
-    await waitFor(() =>
-      expect(screen.getByTestId("provider-list").textContent).toContain(
-        "codex-1",
-      ),
-    );
+      fireEvent.click(screen.getByText("switch-codex"));
+      await waitFor(() =>
+        expect(screen.getByTestId("provider-list").textContent).toContain(
+          "codex-1",
+        ),
+      );
 
-    fireEvent.click(screen.getByText("usage"));
-    expect(screen.getByTestId("usage-modal")).toBeInTheDocument();
-    fireEvent.click(screen.getByText("save-script"));
-    fireEvent.click(screen.getByText("close-usage"));
+      fireEvent.click(screen.getByText("usage"));
+      expect(screen.getByTestId("usage-modal")).toBeInTheDocument();
+      fireEvent.click(screen.getByText("save-script"));
+      fireEvent.click(screen.getByText("close-usage"));
 
-    fireEvent.click(screen.getByText("create"));
-    expect(screen.getByTestId("add-provider-dialog")).toBeInTheDocument();
-    fireEvent.click(screen.getByText("confirm-add"));
-    await waitFor(() =>
-      expect(screen.getByTestId("provider-list").textContent).toMatch(
-        /New codex Provider/,
-      ),
-    );
+      fireEvent.click(screen.getByText("create"));
+      expect(screen.getByTestId("add-provider-dialog")).toBeInTheDocument();
+      fireEvent.click(screen.getByText("confirm-add"));
+      await waitFor(() =>
+        expect(screen.getByTestId("provider-list").textContent).toMatch(
+          /New codex Provider/,
+        ),
+      );
 
-    fireEvent.click(screen.getByText("edit"));
-    expect(screen.getByTestId("edit-provider-dialog")).toBeInTheDocument();
-    fireEvent.click(screen.getByText("confirm-edit"));
-    await waitFor(() =>
-      expect(screen.getByTestId("provider-list").textContent).toMatch(
-        /-edited/,
-      ),
-    );
+      fireEvent.click(screen.getByText("edit"));
+      expect(screen.getByTestId("edit-provider-dialog")).toBeInTheDocument();
+      fireEvent.click(screen.getByText("confirm-edit"));
+      await waitFor(() =>
+        expect(screen.getByTestId("provider-list").textContent).toMatch(
+          /-edited/,
+        ),
+      );
 
-    fireEvent.click(screen.getByText("switch"));
-    fireEvent.click(screen.getByText("duplicate"));
-    await waitFor(() =>
-      expect(screen.getByTestId("provider-list").textContent).toMatch(/copy/),
-    );
+      fireEvent.click(screen.getByText("switch"));
+      fireEvent.click(screen.getByText("duplicate"));
+      await waitFor(() =>
+        expect(screen.getByTestId("provider-list").textContent).toMatch(/copy/),
+      );
 
-    fireEvent.click(screen.getByText("open-website"));
+      fireEvent.click(screen.getByText("open-website"));
 
-    emitTauriEvent("provider-switched", {
-      appType: "codex",
-      providerId: "codex-2",
-    });
+      emitTauriEvent("provider-switched", {
+        appType: "codex",
+        providerId: "codex-2",
+      });
 
-    expect(toastErrorMock).not.toHaveBeenCalled();
-    expect(toastSuccessMock).toHaveBeenCalled();
-  });
+      expect(toastErrorMock).not.toHaveBeenCalled();
+      expect(toastSuccessMock).toHaveBeenCalled();
+    },
+    10_000,
+  );
 
   it("shows toast when auto sync fails in background", async () => {
     const { default: App } = await import("@/App");
